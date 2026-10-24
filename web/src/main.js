@@ -5,11 +5,11 @@ import { initTabs, openFile, switchTab } from './tabs.js';
 import { initCursor } from './cursor.js';
 import { initHover } from './hover.js';
 import { initSelectionBar } from './selbar.js';
-import { drawTree, treeEl, initTree, revealFile, refreshTree, collapseAllDirs, expandDirtyDirs, inGitMode, setAutoRevealSuppressed, setSidebarMode, updateSidebarToggleState, hasGitView } from './tree.js';
+import { initTree, revealFile, refreshTree, collapseAllDirs, expandDirtyDirs, inGitMode, setAutoRevealSuppressed, setSidebarMode, updateSidebarToggleState } from './tree.js';
 import { initSearch } from './search.js';
 import { initOutline } from './outline.js';
 import { initPanels } from './panels.js';
-import { initInspector, showRightInspector } from './inspector.js';
+import { initInspector } from './inspector.js';
 import { initCalls } from './calls.js';
 import { initFind } from './find.js';
 import { initPalette } from './palette.js';
@@ -102,7 +102,9 @@ initPRScope();
   updateSidebarToggleState();
   applyAgentMeta();
   initPR();
-  showRightInspector(); // the right sidebar starts open, on Threads when there is a harness
+  // The right sidebar starts closed (index.html's body carries right-hidden);
+  // it is one click or Mod+J away when it is wanted, and the editor gets the
+  // whole window until then.
   document.title = S.meta.name + ' - lx8';
   $('#root-name').textContent = S.meta.name;
   $('#root-name').title = S.meta.root;
@@ -130,18 +132,16 @@ initPRScope();
   await refreshTree();
   initGitStream();
 
-  // Split into helpers so the readiness poll below can redo this once the
-  // background indexer (main.go's `go ix.Build()`) finishes: gitChanges/
-  // gitFiles are zero until then, so a session that loads before indexing
-  // completes (common right after `lx8 <pr-url>`) would otherwise never
-  // auto-select a diff tab -- until the next manual reload.
-  const applyGitSidebarState = async () => {
-    // The unpushed list decides this too: a clean tree with local commits
-    // still belongs in Git view, which is the only place they are listed.
+  // A project opens on its file tree, not on the git view. The changes list
+  // is for reviewing work in progress; it should not be what stands between
+  // the reader and the code. The Git toggle and the git panel are still there
+  // when they are wanted. PR review is the exception: the PR's changes are
+  // the reason for the session.
+  const applyInitialSidebarState = async () => {
     await refreshUnpushed();
-    const showGit = hasGitView();
-    await setSidebarMode(showGit ? 'git' : 'files', { expandDirty: showGit });
-    return !!(S.meta?.git && ((S.meta.gitChanges > 0) || S.meta?.pr));
+    const reviewingPR = !!S.meta?.pr;
+    await setSidebarMode(reviewingPR ? 'git' : 'files', { expandDirty: reviewingPR });
+    return reviewingPR;
   };
   const selectChangedFileTab = async () => {
     if (S.tabs[S.active]?.diffAvailable) return;
@@ -153,7 +153,7 @@ initPRScope();
     }
   };
 
-  let hasGitChanges = await applyGitSidebarState();
+  const reviewingPR = await applyInitialSidebarState();
 
   const params = new URLSearchParams(window.location.search);
   const initialPath = params.get('path');
@@ -168,8 +168,8 @@ initPRScope();
       const cleanUrl = u.pathname + (cleanSearch ? '?' + cleanSearch : '') + u.hash;
       window.history.replaceState({}, '', cleanUrl);
     } catch {}
-  } else {
-    if (hasGitChanges) await selectChangedFileTab();
+  } else if (reviewingPR) {
+    await selectChangedFileTab();
   }
 
   if (inGitMode()) {
@@ -197,14 +197,20 @@ initPRScope();
           updateStatus();
           if (!initialPath) {
             setAutoRevealSuppressed(true);
-            hasGitChanges = await applyGitSidebarState();
-            if (hasGitChanges) await selectChangedFileTab();
+            if (S.meta?.pr) {
+              // The index now knows every changed file, so a PR session can
+              // finally show its first one.
+              await setSidebarMode('git', { expandDirty: true });
+              await selectChangedFileTab();
+            }
+            // Redraw either view against the complete index. The sidebar
+            // stays in whichever mode the reader chose; finishing the index
+            // is not a reason to move it.
+            await refreshTree();
             if (inGitMode()) {
               await expandDirtyDirs();
               const activeDoc = S.tabs[S.active];
               if (activeDoc?.path) await revealFile(activeDoc.path);
-            } else {
-              collapseAllDirs();
             }
             setAutoRevealSuppressed(false);
           }

@@ -44,12 +44,15 @@ the environment editor. The button next to the panel's title creates a new
 Opening a `.env` file shows it as a table:
 
 - **Key** — the name of the variable. Edit it to rename the variable.
+- **=** — the same separator the file uses, so a row reads the way the line does.
 - **Value** — the value. Edit it to change the value.
 - **Copy** — copies the value to the clipboard.
 - **Remove** — deletes the variable.
 
-**Add variable** puts a new, empty row at the end of the assignments and
-puts the cursor in the key box. `Enter` in the key box moves to the value box.
+**Add variable** puts a new, empty row after the last assignment and puts the
+cursor in the key box. `Enter` in the key box moves to the value box. Adding
+or removing a variable touches one row rather than redrawing the file, so a
+large generated `.env` stays responsive.
 
 **Filter** narrows the table to the keys and values that match what you type.
 

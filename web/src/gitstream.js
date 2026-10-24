@@ -1,9 +1,9 @@
-import { S, apiPost, doc_ } from './state.js';
-import { updateSidebarToggleState, patchTreeGitStatus, treeEl, setSidebarMode, hasGitView } from './tree.js';
+import { S, api, apiPost, doc_ } from './state.js';
+import { updateSidebarToggleState, patchTreeGitStatus, treeEl, setSidebarMode, hasGitView, refreshTree } from './tree.js';
 import { drawTabs, loadGutter, closeTab, reloadOpenTabs } from './tabs.js';
 import { syncDiffView } from './diff.js';
 import { render } from './renderer.js';
-import { updateStatus, updateMetricsDisplay } from './status.js';
+import { updateStatus, updateMetricsDisplay, setStatusNote } from './status.js';
 import { updateGitPanel } from './gitpanel.js';
 import { refreshUnpushed } from './unpushed.js';
 import { updateScopeCounts } from './prscope.js';
@@ -14,6 +14,14 @@ let lastSig = '';
 let refreshing = null;
 let lastRefreshAt = 0;
 let lastTrafficAt = Date.now();
+
+// What the checkout is sitting on: the branch and the commit it points at.
+// A pull, a checkout run in a terminal, a reset or a rebase all move it. Until
+// lx8 notices, every open tab shows a file from a version that is no longer
+// on disk.
+let headKey = '';
+let headBranch = '';
+let syncingHead = null;
 
 function markTraffic() {
   lastTrafficAt = Date.now();
@@ -157,8 +165,56 @@ function disconnect() {
   }
 }
 
+// headSignature identifies the content of the checkout. The branch alone is
+// not enough: a fast-forward pull stays on the same branch.
+function headSignature(data) {
+  return (data.branch || '') + '@' + (data.recentCommits?.[0]?.hash || '');
+}
+
+// syncAfterHeadMove brings the whole view onto a new commit. The file list
+// itself can differ between branches -- a directory that was there is gone, a
+// new one has appeared -- so the index is rebuilt, the tree redrawn, and every
+// open tab read again.
+async function syncAfterHeadMove(branchChanged, branch) {
+  if (syncingHead) return syncingHead;
+  syncingHead = (async () => {
+    try {
+      const j = await api('/api/reindex');
+      S.meta.files = j.files;
+      S.meta.indexMs = j.indexMs;
+      if (j.gitChanges !== undefined) S.meta.gitChanges = j.gitChanges;
+      if (j.gitFiles !== undefined) S.meta.gitFiles = j.gitFiles;
+      await refreshTree();
+      await reloadOpenTabs();
+      updateStatus();
+      if (branchChanged && branch && !S.meta?.pr) {
+        setStatusNote('On branch ' + branch, 4000);
+      }
+    } catch {
+      // Leave the tabs as they were; the next git-status event or the focus
+      // refresh will try again.
+    } finally {
+      syncingHead = null;
+    }
+  })();
+  return syncingHead;
+}
+
 async function handleGitStatus(data) {
   if (!data) return;
+
+  // A checkout, pull, reset or rebase in a terminal moves HEAD. Nothing about
+  // an open tab's file changed status -- it is often still "clean" -- so the
+  // reload below would not fire, and the editor would keep showing the file
+  // from the branch that is no longer checked out.
+  const head = headSignature(data);
+  const branchChanged = !!headKey && (data.branch || '') !== headBranch;
+  const movedHead = !!headKey && head !== headKey;
+  headKey = head;
+  headBranch = data.branch || '';
+  if (movedHead) {
+    await syncAfterHeadMove(branchChanged, data.branch || '');
+  }
 
   // Identical snapshot to the last one applied (refocus, SSE reconnect): the
   // tree, panel and gutters are already right. Open modified tabs are still

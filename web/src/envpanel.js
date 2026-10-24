@@ -65,6 +65,7 @@ export async function refreshEnvFiles() {
     row.type = 'button';
     row.className = 'envpanel-row';
     row.title = f.path;
+    row.dataset.path = f.path;
 
     const name = document.createElement('span');
     name.className = 'envpanel-name';
@@ -150,8 +151,20 @@ export function initEnvPanel() {
   on('file:saved', () => {
     if (open) refreshEnvFiles();
   });
-  on('env:saved', () => {
-    if (open) refreshEnvFiles();
+  on('env:saved', (d) => {
+    if (!open || !d) return;
+    // Autosave fires while the reader is typing. Only the key count of the
+    // file that was written can have changed, and rescanning the workspace
+    // for every save is exactly the sort of work that makes a big project
+    // feel frozen.
+    const row = envListEl?.querySelector('.envpanel-row[data-path="' + CSS.escape(d.path) + '"]');
+    const count = row?.querySelector('.envpanel-keys');
+    if (!count) {
+      refreshEnvFiles(); // the file was not in the list yet
+      return;
+    }
+    const n = (d.envEntries || []).filter(e => e.type === 'pair').length;
+    count.textContent = n === 1 ? '1 key' : n + ' keys';
   });
   on('file:created', () => {
     if (open) refreshEnvFiles();

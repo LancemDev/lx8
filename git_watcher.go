@@ -53,6 +53,7 @@ type GitWatcher struct {
 	lastHeadMod    time.Time
 	lastPackedMod  time.Time
 	lastHeadCommit string
+	lastBranch     string
 	lastAhead      int
 	lastBehind     int
 	lastRewritten  bool
@@ -67,6 +68,7 @@ func NewGitWatcher(ix *Index) *GitWatcher {
 		triggerCh:      make(chan struct{}, 1),
 		stopCh:         make(chan struct{}),
 		lastHeadCommit: gitHeadCommit(ix.Root()),
+		lastBranch:     gitCurrentBranch(ix.Root()),
 	}
 	return gw
 }
@@ -196,6 +198,7 @@ func (gw *GitWatcher) loop(ctx context.Context, gitdir string) {
 // and returns the latest git status payload.
 func (gw *GitWatcher) Refresh() GitStatusPayload {
 	count, files, changed, statuses, dirtyDirs, staged, yourStatuses, yourDirtyDirs := gw.ix.UpdateGitStatus()
+	branch := gitCurrentBranch(gw.root)
 	var recentCommits []GitCommit
 	var ahead, behind int
 	var rewritten bool
@@ -210,8 +213,11 @@ func (gw *GitWatcher) Refresh() GitStatusPayload {
 			rewritten = !gitIsAncestor(gw.root, head, "HEAD")
 		}
 		gw.mu.Lock()
-		if headCommit != gw.lastHeadCommit || ahead != gw.lastAhead || behind != gw.lastBehind || rewritten != gw.lastRewritten {
+		// The branch is part of the state even when it points at the same
+		// commit: switching to it is a change the panel has to show.
+		if headCommit != gw.lastHeadCommit || branch != gw.lastBranch || ahead != gw.lastAhead || behind != gw.lastBehind || rewritten != gw.lastRewritten {
 			gw.lastHeadCommit = headCommit
+			gw.lastBranch = branch
 			gw.lastAhead = ahead
 			gw.lastBehind = behind
 			gw.lastRewritten = rewritten
@@ -220,7 +226,6 @@ func (gw *GitWatcher) Refresh() GitStatusPayload {
 		gw.mu.Unlock()
 	}
 
-	branch := gitCurrentBranch(gw.root)
 	payload := GitStatusPayload{
 		Git:           gitAvailable(gw.root),
 		GitChanges:    count,

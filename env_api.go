@@ -110,12 +110,18 @@ func (s *Server) handleEnvSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The file on disk changed, so anything the index cached for it is stale.
+	// The file on disk changed, so the cached rendering of it is stale.
+	//
+	// The workspace index is not rebuilt here. A .env file is written on every
+	// autosave, often while the reader is still typing; walking the whole tree
+	// each time is wasted work (the tree does not change) and, on a large
+	// project, several overlapping walks compete with the requests that draw
+	// the page. The editor reads this file through /api/env/get, which does
+	// not depend on the index.
 	Evict(abs)
 	if s.gitWatcher != nil {
 		s.gitWatcher.Trigger()
 	}
-	go s.ix.Build()
 
 	writeJSON(w, map[string]any{
 		"ok":   true,
