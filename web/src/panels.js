@@ -3,7 +3,7 @@ import { $, $$, S, api } from './state.js';
 import { layout, render } from './renderer.js';
 import { updateStatus } from './status.js';
 import { loadOutline } from './outline.js';
-import { treeEl, refreshTree, setSidebarMode, hasGitView } from './tree.js';
+import { refreshTree, setSidebarMode, inGitMode } from './tree.js';
 import { reloadOpenTabs } from './tabs.js';
 import { showToast } from './ui.js';
 import { refreshUnpushed } from './unpushed.js';
@@ -27,10 +27,11 @@ export async function reindexWorkspace() {
     if (j.gitChanges !== undefined) S.meta.gitChanges = j.gitChanges;
     if (j.gitFiles !== undefined) S.meta.gitFiles = j.gitFiles;
     // A refresh re-reads the unpushed list too: commits may have been made,
-    // amended or pushed from a terminal since the last git-status tick, and
-    // hasGitView() below counts them.
+    // amended or pushed from a terminal since the last git-status tick.
     await refreshUnpushed();
-    await setSidebarMode(hasGitView() ? 'git' : 'files');
+    // Refresh in place: the sidebar stays in the mode the reader put it in.
+    // Switching to Git view here would make a pull change what they see.
+    await setSidebarMode(inGitMode() ? 'git' : 'files');
     await refreshTree();
     await reloadOpenTabs();
     updateStatus();

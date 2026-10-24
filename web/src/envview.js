@@ -50,6 +50,11 @@ const pending = new WeakMap();
 // different file is shown.
 let shownDoc = null;
 
+// The row drawn for each entry. Adding or removing a variable changes one
+// row, not the whole file: rebuilding every row on each change is what made
+// a large .env freeze the page when a key was added.
+const rowOf = new WeakMap();
+
 // What a reader sees of an entry. The original line text (raw) is left out:
 // it changes on every write without changing anything on screen.
 const ENTRY_FIELDS = ['type', 'key', 'value', 'quote', 'export', 'tail', 'text'];
@@ -144,28 +149,26 @@ function renderEnvTable(d) {
 
   const filter = (envFilterEl?.value || '').trim().toLowerCase();
   let shown = 0;
-  let pairs = 0;
 
   for (let i = 0; i < (d.envEntries || []).length; i++) {
     const e = d.envEntries[i];
-    if (e.type === 'pair') pairs++;
 
     if (e.type === 'comment') {
       // A comment keeps its place in the file, so it keeps its place here.
       const row = document.createElement('div');
       row.className = 'env-row env-comment';
-      row.dataset.idx = String(i);
       const c = document.createElement('span');
       c.className = 'env-comment-text';
       c.textContent = e.text || '';
       row.appendChild(c);
+      rowOf.set(e, row);
       envRows.appendChild(row);
       continue;
     }
     if (e.type === 'blank') {
       const row = document.createElement('div');
       row.className = 'env-row env-blank';
-      row.dataset.idx = String(i);
+      rowOf.set(e, row);
       envRows.appendChild(row);
       continue;
     }
@@ -176,12 +179,10 @@ function renderEnvTable(d) {
       continue;
     }
     shown++;
-    envRows.appendChild(buildPairRow(d, e, i));
+    envRows.appendChild(buildPairRow(d, e));
   }
 
-  if (envCountEl) {
-    envCountEl.textContent = pairs === 1 ? '1 variable' : pairs + ' variables';
-  }
+  updateEnvCount(d);
   if (!shown && filter) {
     const empty = document.createElement('div');
     empty.className = 'env-empty';
@@ -191,14 +192,21 @@ function renderEnvTable(d) {
   updateEnvStatus(d);
 }
 
+/** updateEnvCount keeps the "N variables" label in step with the file. */
+function updateEnvCount(d) {
+  if (!envCountEl) return;
+  const pairs = (d.envEntries || []).filter(e => e.type === 'pair').length;
+  envCountEl.textContent = pairs === 1 ? '1 variable' : pairs + ' variables';
+}
+
 /**
  * buildPairRow builds the row for one assignment: a key box, a value box and
  * the buttons that act on it.
  */
-function buildPairRow(d, e, i) {
+function buildPairRow(d, e) {
   const row = document.createElement('div');
   row.className = 'env-row env-pair';
-  row.dataset.idx = String(i);
+  rowOf.set(e, row);
 
   const keyCell = document.createElement('div');
   keyCell.className = 'env-cell env-cell-key';
@@ -277,14 +285,19 @@ function buildPairRow(d, e, i) {
   del.title = 'Remove this variable';
   del.setAttribute('aria-label', 'Remove this variable');
   del.innerHTML = '&times;';
-  del.addEventListener('click', () => removeEntry(d, i));
+  del.addEventListener('click', () => removeEntry(d, e));
 
   const actions = document.createElement('div');
   actions.className = 'env-cell env-cell-actions';
   actions.appendChild(copy);
   actions.appendChild(del);
 
+  const eq = document.createElement('span');
+  eq.className = 'env-eq';
+  eq.textContent = '=';
+
   row.appendChild(keyCell);
+  row.appendChild(eq);
   row.appendChild(valCell);
   row.appendChild(actions);
   return row;
@@ -316,16 +329,30 @@ function markDirty(d) {
 /**
  * removeEntry drops an assignment from the file.
  */
-function removeEntry(d, i) {
-  if (!d.envEntries || !d.envEntries[i]) return;
-  const removed = d.envEntries.splice(i, 1)[0];
-  renderEnvTable(d);
+function removeEntry(d, e) {
+  const i = d.envEntries ? d.envEntries.indexOf(e) : -1;
+  if (i < 0) return;
+  d.envEntries.splice(i, 1);
+
+  if ((envFilterEl?.value || '').trim()) {
+    // The rows on screen are a subset of the file, so the "nothing matches"
+    // message may have to appear or go. A filtered list is short.
+    renderEnvTable(d);
+  } else {
+    rowOf.get(e)?.remove();
+    updateEnvCount(d);
+  }
+
   markDirty(d);
-  showToast('i', 'Removed ' + (removed.key || 'variable'));
+  showToast('i', 'Removed ' + (e.key || 'variable'));
 }
 
 /**
  * addEntry appends a new assignment to the file and puts the cursor in it.
+ *
+ * It inserts one row rather than redrawing the table. The old redraw built
+ * two inputs for every variable in the file, which blocked the page for
+ * seconds on a large .env exactly when the reader wanted to type.
  */
 export function addEntry(d) {
   if (!d) return;
@@ -338,11 +365,24 @@ export function addEntry(d) {
   }
   const entry = { type: 'pair', key: '', value: '', quote: '' };
   d.envEntries.splice(at, 0, entry);
-  renderEnvTable(d);
-  markDirty(d);
 
-  const row = envRows?.querySelector(`.env-pair[data-idx="${at}"] .env-key-input`);
-  row?.focus();
+  let key;
+  if ((envFilterEl?.value || '').trim()) {
+    // An empty row cannot match a filter. Drop it so the variable the reader
+    // just asked for is on screen and the cursor has somewhere to go.
+    envFilterEl.value = '';
+    renderEnvTable(d);
+    key = rowOf.get(entry)?.querySelector('.env-key-input');
+  } else {
+    const row = buildPairRow(d, entry);
+    const next = d.envEntries[at + 1] ? rowOf.get(d.envEntries[at + 1]) : null;
+    envRows.insertBefore(row, next && next.parentNode === envRows ? next : null);
+    updateEnvCount(d);
+    key = row.querySelector('.env-key-input');
+  }
+
+  markDirty(d);
+  key?.focus();
 }
 
 /**

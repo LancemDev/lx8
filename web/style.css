@@ -3692,24 +3692,36 @@ body.hide-git-gutter .g-git, body.hide-git-gutter [class*="git-"] { display: non
 .envview-add:hover { background: var(--accent); filter: brightness(1.1); }
 .envview-save { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 
-/* The column titles line up with the rows below them. */
+/* The column titles line up with the rows below them. The "=" column is the
+   one the file itself uses between a name and its value, so a row reads the
+   way the line does. */
 .envview-cols {
   display: grid; flex: none;
-  grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr) 64px;
+  grid-template-columns: minmax(140px, 1fr) 14px minmax(180px, 2fr) 64px;
   gap: 10px; padding: 5px 12px;
   background: var(--bg2); border-bottom: 1px solid var(--line);
   font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
   color: var(--faint);
 }
+.env-eq-col { text-align: center; }
 .envview-body { flex: 1; overflow: auto; }
 .envview-rows { padding-bottom: 40vh; }
 
 .env-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr) 64px;
+  grid-template-columns: minmax(140px, 1fr) 14px minmax(180px, 2fr) 64px;
   gap: 10px; align-items: center;
   padding: 2px 12px;
   border-bottom: 1px solid var(--line);
+  /* A generated .env can hold thousands of assignments. Laying out every row
+     to open the file is what used to block the page; the browser skips the
+     rows that are not on screen and remembers their real height once seen. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 28px;
+}
+.env-eq {
+  color: var(--faint); font: 12.5px/1.5 var(--mono);
+  text-align: center; user-select: none;
 }
 .env-row:hover { background: var(--bg2); }
 .env-comment {
