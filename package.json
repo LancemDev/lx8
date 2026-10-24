@@ -1,6 +1,6 @@
 {
   "name": "lx8",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "type": "module",
   "private": true,
   "description": "A fast, local-first code navigator with a built-in .env editor",

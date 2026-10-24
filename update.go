@@ -389,7 +389,12 @@ func installUpdate(rel *githubRelease, latestVer, execPath string) error {
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// A release binary is around 15 MB. On a slow connection that can take
+	// longer than a minute, and the old 60s deadline failed the whole update
+	// with "context deadline exceeded" after the download was already mostly
+	// done. Ten minutes leaves room for a genuinely slow link while still
+	// ending a hung request.
+	client := &http.Client{Timeout: 10 * time.Minute}
 	if err := downloadVerifiedAsset(client, downloadURL, checksumURL, expectedAsset, tmpFile); err != nil {
 		_ = tmpFile.Close()
 		return fmt.Errorf("verify downloaded update: %w", err)
