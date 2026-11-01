@@ -1122,6 +1122,17 @@ body.word-wrap .c { white-space: pre-wrap; word-break: break-word; overflow-wrap
 .c .gi, .md-code .gi, .diff-code .gi{color:var(--gi);background:var(--gi-bg)} .c .gd, .md-code .gd, .diff-code .gd{color:var(--gd);background:var(--gd-bg)}
 .c .gh, .md-code .gh, .diff-code .gh{color:var(--accent-fg);font-weight:600} .c .ge, .md-code .ge, .diff-code .ge{font-style:italic} .c .gs, .md-code .gs, .diff-code .gs{font-weight:600}
 .c .err, .md-code .err, .diff-code .err{color:var(--err);text-decoration:underline wavy}
+/* The editable overlay uses the same token classes as Chroma's output. */
+#editview-highlight-inner .k{color:var(--k)} #editview-highlight-inner .kt{color:var(--kt)}
+#editview-highlight-inner .nf{color:var(--nf)} #editview-highlight-inner .nc{color:var(--nc)}
+#editview-highlight-inner .nb{color:var(--nb)} #editview-highlight-inner .nv{color:var(--nv)}
+#editview-highlight-inner .no{color:var(--no)} #editview-highlight-inner .na{color:var(--na)}
+#editview-highlight-inner .nt{color:var(--nt)} #editview-highlight-inner .nd{color:var(--nd)}
+#editview-highlight-inner .np{color:var(--np)} #editview-highlight-inner .s{color:var(--s)}
+#editview-highlight-inner .m{color:var(--m)} #editview-highlight-inner .o{color:var(--o)}
+#editview-highlight-inner .p{color:var(--p)} #editview-highlight-inner .c{color:var(--c);font-style:normal}
+#editview-highlight-inner .cp{color:var(--cp)} #editview-highlight-inner .gh{color:var(--accent-fg);font-weight:600}
+#editview-highlight-inner .ge{font-style:italic} #editview-highlight-inner .gs{font-weight:600}
 
 /* ---------- diff view (Mod+D): split (default) or unified render of a
    modified file's git diff against HEAD, in its own overlay like the
@@ -1397,18 +1408,47 @@ body.mermaid-fs-active { overflow: hidden; }
 .editview-wrap {
   flex: 1; position: relative; height: 100%; overflow: hidden;
 }
+/* The editable textarea keeps its text transparent and sits over a coloured
+   copy of the same text. Both use the same font, padding, width and wrapping
+   rules, so the caret and the selection land on the highlighted glyphs. */
+#editview-highlight {
+  position: absolute; inset: 0; z-index: 0;
+  overflow: hidden; pointer-events: none; background: var(--bg);
+}
+#editview-highlight-inner {
+  position: absolute; top: 0; left: 0;
+  width: 100%; min-height: 100%;
+  padding: 0 8px 40vh 8px; margin: 0; border: 0; box-sizing: border-box;
+  background: var(--bg); color: var(--fg);
+  font: var(--fs)/var(--lh) var(--mono);
+  tab-size: var(--tab-size, 4); -moz-tab-size: var(--tab-size, 4);
+  white-space: pre; overflow-wrap: normal;
+  will-change: transform;
+}
+/* Token spans use <i> for compactness; italics would change the glyphs under
+   the transparent textarea and break caret alignment. */
+#editview-highlight-inner i { font-style: normal; }
+body.word-wrap #editview-highlight-inner { white-space: pre-wrap; overflow-wrap: break-word; }
 #editview-textarea {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; z-index: 1;
   width: 100%; height: 100%;
   padding: 0 8px 40vh 8px; margin: 0;
   border: none; outline: none; resize: none;
-  background: transparent; color: var(--fg);
+  background: transparent; color: transparent;
+  -webkit-text-fill-color: transparent;
   font: var(--fs)/var(--lh) var(--mono);
   tab-size: var(--tab-size, 4);
   -moz-tab-size: var(--tab-size, 4);
   white-space: pre; overflow: auto;
   box-sizing: border-box; caret-color: var(--accent);
 }
+/* Large files skip the highlight copy entirely; the textarea shows its own
+   text rather than adding a second, equally large DOM tree. */
+body.edit-plain #editview-textarea {
+  color: var(--fg);
+  -webkit-text-fill-color: var(--fg);
+}
+body.edit-plain #editview-highlight { display: none; }
 body.word-wrap #editview-textarea { white-space: pre-wrap; overflow-wrap: break-word; overflow-x: hidden; }
 body.word-wrap .editview-gutter { white-space: normal; }
 .editview-gutter > div { box-sizing: border-box; }
@@ -1515,9 +1555,12 @@ kbd {
   padding: 4px 5px 4px 10px; box-shadow: var(--shadow);
 }
 #find-input { width: 190px; font-size: 12.5px; }
+#replace-input { width: 150px; font-size: 12.5px; }
 #find-count { font: 11px var(--mono); color: var(--faint); min-width: 4.5em; text-align: right; }
 #findbar button { width: 22px; height: 22px; border-radius: var(--r); color: var(--dim); display: grid; place-items: center; font-size: 12px; }
 #findbar button:hover { background: var(--bg4); color: var(--fg); }
+#find-replace-toggle.on { color: var(--accent-fg); background: var(--bg4); }
+#findbar #replace-one, #findbar #replace-all { width: auto; padding: 0 7px; font: 11px/1 var(--ui); }
 #find-case { font: 600 10.5px/1 var(--mono); border: 1px solid transparent; }
 #find-case.on, #find-case.on:hover { color: var(--accent-fg); border-color: var(--accent); background: var(--bg4); }
 
@@ -1850,6 +1893,8 @@ kbd {
   font: 12px var(--ui); color: var(--fg);
 }
 .sel-menu-item:hover { background: var(--bg4); color: var(--accent-fg); }
+.sel-menu-item.danger { color: var(--err); }
+.sel-menu-item.danger:hover { background: color-mix(in srgb, var(--err) 14%, transparent); color: var(--err); }
 .sel-menu-item:disabled { color: var(--faint); cursor: default; }
 .sel-menu-item:disabled:hover { background: none; color: var(--faint); }
 .sel-menu-item:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }

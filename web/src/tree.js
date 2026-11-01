@@ -1,12 +1,13 @@
 // web/src/tree.js
 import { $, $$, esc, api, apiPost, apiPostJson, S } from './state.js';
-import { openFile } from './tabs.js';
+import { openFile, confirmDiscardTabsUnderPath, closeTabsUnderPath } from './tabs.js';
 import { syncDiffView, focusDiffScope } from './diff.js';
 import { showToast, copyToClipboard } from './ui.js';
 import { closeSelMenu } from './selbar.js';
 import { emit, on } from './bus.js';
 import { isAutoRevealEnabled } from './settings.js';
-import { promptNewItem } from './newitem.js';
+import { promptNewItem, promptRename } from './newitem.js';
+import { triggerRefresh } from './gitstream.js';
 
 export const treeEl = $('#tree');
 const treeMenu = $('#tree-menu');
@@ -525,6 +526,8 @@ export function openTreeMenu(row, x, y) {
     );
   }
   items.push(
+    { action: 'rename', label: 'Rename...' },
+    { action: 'delete', label: 'Delete', danger: true },
     { action: 'copy-relative', label: 'Copy Relative Path' },
     { action: 'copy-name', label: isDir ? 'Copy Folder Name' : 'Copy File Name' },
     { action: 'copy-absolute', label: 'Copy Absolute Path' },
@@ -532,7 +535,7 @@ export function openTreeMenu(row, x, y) {
 
   for (const item of items) {
     const btn = document.createElement('button');
-    btn.className = 'sel-menu-item';
+    btn.className = 'sel-menu-item' + (item.danger ? ' danger' : '');
     btn.dataset.action = item.action;
     btn.setAttribute('role', 'menuitem');
     const label = document.createElement('span');
@@ -552,10 +555,10 @@ export function initTree() {
 
   if (treeMenu) {
     treeMenu.addEventListener('mousedown', e => e.preventDefault());
-    treeMenu.addEventListener('click', e => {
+    treeMenu.addEventListener('click', async e => {
       const btn = e.target.closest('[data-action]');
       if (!btn || !activeTreeTarget) return;
-      const { path, name } = activeTreeTarget;
+      const { path, name, isDir } = activeTreeTarget;
       const act = btn.dataset.action;
       closeTreeMenu();
 
@@ -563,6 +566,21 @@ export function initTree() {
         promptNewItem('file', path);
       } else if (act === 'new-folder') {
         promptNewItem('dir', path);
+      } else if (act === 'rename') {
+        promptRename(path, isDir);
+      } else if (act === 'delete') {
+        const kind = isDir ? 'folder' : 'file';
+        if (!confirm(`Delete ${kind} "${path}"? This cannot be undone.`)) return;
+        if (!confirmDiscardTabsUnderPath(path, isDir)) return;
+        try {
+          await apiPostJson('/api/fs/delete', { path });
+          closeTabsUnderPath(path, isDir);
+          showToast('✓', 'Deleted ' + path);
+          await refreshTree();
+          triggerRefresh();
+        } catch (err) {
+          showToast('!', 'Failed to delete: ' + (err.message || 'unknown error'));
+        }
       } else if (act === 'copy-relative') {
         copyToClipboard(path, 'Copied ' + path);
       } else if (act === 'copy-name') {

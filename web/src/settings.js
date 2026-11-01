@@ -67,6 +67,14 @@ const BUILTIN_SCHEMA = [
     options: ["on", "off"]
   },
   {
+    key: "editor.editOnOpen",
+    title: "Edit on Open",
+    description: "Open text files directly in the editor instead of the read-only viewer. Markdown, tables, .env files and large files keep their existing view.",
+    category: "Text Editor",
+    type: "boolean",
+    default: true
+  },
+  {
     key: "editor.vimMode",
     title: "Vim Keybindings",
     description: "Enable Vim modal navigation (Normal mode, Visual mode, motions, search, and LSP shortcuts).",
@@ -317,6 +325,7 @@ const COMMONLY_USED_KEYS = new Set([
   'workbench.colorTheme',
   'editor.wordWrap',
   'editor.lineNumbers',
+  'editor.editOnOpen',
   'editor.vimMode',
   'editor.tabSize',
   'diffEditor.renderSideBySide',

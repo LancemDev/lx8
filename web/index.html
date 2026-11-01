@@ -219,6 +219,7 @@
       <div id="editview" hidden>
         <div id="editview-gutter" class="editview-gutter"></div>
         <div class="editview-wrap">
+          <div id="editview-highlight" aria-hidden="true"><div id="editview-highlight-inner"></div></div>
           <textarea id="editview-textarea" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
         </div>
       </div>
@@ -308,7 +309,11 @@
       <div id="findbar" hidden>
         <input id="find-input" type="text" spellcheck="false" placeholder="Find" autocomplete="off">
         <button id="find-case" title="Match case">Aa</button>
+        <button id="find-replace-toggle" title="Toggle replace" hidden>&#8644;</button>
         <span id="find-count">0</span>
+        <input id="replace-input" type="text" spellcheck="false" placeholder="Replace" autocomplete="off" hidden>
+        <button id="replace-one" title="Replace this match" hidden>Replace</button>
+        <button id="replace-all" title="Replace all matches" hidden>All</button>
         <button id="find-prev" title="Previous ({Shift+Enter})">&#8593;</button>
         <button id="find-next" title="Next ({Enter})">&#8595;</button>
         <button id="find-close" title="Close ({Esc})">&#10005;</button>

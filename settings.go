@@ -135,6 +135,14 @@ var settingsSchema = []settingSchemaItem{
 		Options:     []string{"on", "off"},
 	},
 	{
+		Key:         "editor.editOnOpen",
+		Title:       "Edit on Open",
+		Description: "Open text files directly in the editor instead of the read-only viewer. Markdown, tables, .env files and large files keep their existing view.",
+		Category:    "Text Editor",
+		Type:        "boolean",
+		Default:     true,
+	},
+	{
 		Key:         "editor.vimMode",
 		Title:       "Vim Keybindings",
 		Description: "Enable Vim modal navigation (Normal mode, Visual mode, motions, search, and LSP shortcuts).",

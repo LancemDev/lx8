@@ -19,6 +19,7 @@ lx8's file explorer eliminates unnecessary clicks by automatically collapsing si
 - **Gitignore Awareness & Dimming**: Files and folders ignored by `.gitignore` rules (such as `dist/`, `build/`, `vendor/`, `node_modules`) are visually dimmed in the tree and excluded from background search indexes.
 - **Auto-Reveal Active File**: Opening a file via fuzzy search (`Cmd/Ctrl+P`) or Go to Definition (`F12`) automatically scrolls the sidebar tree to reveal and highlight the active file.
 - **Expand All / Collapse All**: The explorer header has buttons to open project folders or close every folder. Expand All shows a progress state while loading nested folders in small batches. Ignored folders stay closed to avoid bulk-loading generated trees; you can still open them individually. Collapse All can stop an expansion while it runs. The file tree starts with all folders collapsed on launch for a clean, distraction-free view.
+- **File and Folder Actions**: Right-click any row for **New File**, **New Folder**, **Rename**, **Delete**, and copy-path actions. Rename and delete are protected against the workspace root and `.git`, and check open tabs before changing anything on disk.
 - **Collapsible Sidebar (`Cmd/Ctrl+B`)**: Quickly toggle the entire file explorer sidebar on or off to maximize reading space for wide diffs or code inspection.
 - **Multi-Tab Document Bar**:
   - Open multiple files in tabs and switch between them.
