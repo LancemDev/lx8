@@ -371,9 +371,9 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
       continue;
     }
 
-    /* An open text editor holds its doc object, and reloading after a save
-       must not swap the textarea out from under the caret. Update the
-       metadata in place instead. */
+    /* An open text editor holds its doc object, and reloading after each
+       autosave must not swap the textarea out from under the caret. Update
+       the metadata in place instead. */
     if (keep.isEditing) {
       Object.assign(keep, d);
       if (j.refine) refineChunk(keep, tgt.start / CHUNK);
@@ -386,7 +386,7 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
 
   if (onlyIfChanged && !anyChanged) return;
 
-  // A save reloads the active tab after every write. It must not fire the
+  // An autosave reloads the active tab after every write. It must not fire the
   // tab-activation handlers: they clear find and selections, which would close
   // the find bar under the reader's cursor while the file is being edited.
   const activeIsEditing = !!doc_()?.isEditing;

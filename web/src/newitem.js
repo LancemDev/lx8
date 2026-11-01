@@ -2,7 +2,7 @@
 import { $, apiPostJson, S } from './state.js';
 import { showToast } from './ui.js';
 import { openFile, confirmDiscardTabsUnderPath, closeTabsUnderPath } from './tabs.js';
-import { enterEditMode } from './editview.js';
+import { enterEditMode, suspendAutosaveForPath, resumeAutosaveForPath } from './editview.js';
 import { triggerRefresh } from './gitstream.js';
 import { drawTree, revealDir, treeEl } from './tree.js';
 import { emit } from './bus.js';
@@ -97,7 +97,14 @@ async function submitNewItem() {
       }
       if (!confirmDiscardTabsUnderPath(oldPath, isDir)) return;
       const wasOpen = S.tabs.some(t => t.path === oldPath);
-      const res = await apiPostJson('/api/fs/rename', { path: oldPath, newPath });
+      await suspendAutosaveForPath(oldPath, isDir);
+      let res;
+      try {
+        res = await apiPostJson('/api/fs/rename', { path: oldPath, newPath });
+      } catch (err) {
+        resumeAutosaveForPath(oldPath, isDir);
+        throw err;
+      }
       closeNewItemModal();
       closeTabsUnderPath(oldPath, isDir);
       showToast('✓', 'Renamed to ' + res.newPath);

@@ -144,7 +144,7 @@ Full details: [docs/features/env-editor.md](docs/features/env-editor.md).
 lx8 is a lightweight code editor and navigator, not only an env editor.
 
 - **Editor-first** -- clicking a text file opens it with syntax highlighting,
-  find and replace, line comments, and duplicate-line.
+  autosave on by default, find and replace, line comments, and duplicate-line.
   Markdown, tables, and `.env` keep their rendered or table views.
 - **Review workbench** -- run `lx8` with no arguments to open a launcher for
   directories and pull requests, all on one port.
@@ -153,7 +153,7 @@ lx8 is a lightweight code editor and navigator, not only an env editor.
 - **Fast navigation** -- fuzzy file search (`Cmd/Ctrl+P`), symbol outline
   (`Cmd/Ctrl+Shift+O`), workspace search (`Cmd/Ctrl+Shift+F`), in milliseconds.
 - **Direct file editing** -- edit and save any file in the browser
-  (`Cmd/Ctrl+E`, `Cmd/Ctrl+S`), with save-all (`Cmd/Ctrl+Alt+S`).
+  (`Cmd/Ctrl+E`), with autosave and save-all (`Cmd/Ctrl+Alt+S`).
 - **File management** -- create, rename, move, and delete files and folders
   from the tree's context menu.
 - **Git and diffs** -- live status, split and unified diffs, stage, commit,
@@ -203,6 +203,7 @@ modal at `Cmd/Ctrl+`, which writes the file as you change it.
 | :--- | :--- | :--- |
 | `env.autosave` | `true` | Writes a `.env` file without being asked |
 | `env.autosaveDelay` | `600` | Milliseconds to wait after the last change |
+| `editor.autosave` | `true` | Writes a source file after a short pause |
 | `editor.editOnOpen` | `true` | Opens text files directly in the editor |
 | `editor.fontSize` | `13.5` | Font size in the code viewer |
 | `workbench.colorTheme` | `dark` | The theme |

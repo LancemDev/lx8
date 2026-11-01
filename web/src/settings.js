@@ -75,6 +75,14 @@ const BUILTIN_SCHEMA = [
     default: true
   },
   {
+    key: "editor.autosave",
+    title: "Autosave",
+    description: "Write edits to disk automatically after you stop typing. Turn off to save only with Ctrl+S / Cmd+S.",
+    category: "Text Editor",
+    type: "boolean",
+    default: true
+  },
+  {
     key: "editor.vimMode",
     title: "Vim Keybindings",
     description: "Enable Vim modal navigation (Normal mode, Visual mode, motions, search, and LSP shortcuts).",
@@ -326,6 +334,7 @@ const COMMONLY_USED_KEYS = new Set([
   'editor.wordWrap',
   'editor.lineNumbers',
   'editor.editOnOpen',
+  'editor.autosave',
   'editor.vimMode',
   'editor.tabSize',
   'diffEditor.renderSideBySide',

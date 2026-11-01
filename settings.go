@@ -143,6 +143,14 @@ var settingsSchema = []settingSchemaItem{
 		Default:     true,
 	},
 	{
+		Key:         "editor.autosave",
+		Title:       "Autosave",
+		Description: "Write edits to disk automatically after you stop typing. Turn off to save only with Ctrl+S / Cmd+S.",
+		Category:    "Text Editor",
+		Type:        "boolean",
+		Default:     true,
+	},
+	{
 		Key:         "editor.vimMode",
 		Title:       "Vim Keybindings",
 		Description: "Enable Vim modal navigation (Normal mode, Visual mode, motions, search, and LSP shortcuts).",

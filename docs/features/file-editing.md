@@ -14,9 +14,11 @@ lx8 is editor-first: clicking a text file opens it ready to type, not just to re
 
 ## Saving
 
-- **`Cmd/Ctrl+S`** (or the **Save** button) writes the file. The button briefly turns solid green with a check mark on success.
+- **Autosave is on by default** (`editor.autosave`). Edits are written about 800 ms after you stop typing, and pending edits are flushed when you switch tabs or leave edit mode.
+- **`Cmd/Ctrl+S`** (or the **Save** button) still writes immediately. The button briefly turns solid green with a check mark on success.
 - **`Cmd/Ctrl+Alt+S`** saves every edited file with unsaved changes.
-- Unsaved changes show a dot on the tab; leaving edit mode, closing a dirty tab, or closing the browser window asks before discarding anything.
+- Turn autosave off in Settings if you prefer manual saves. The tab then keeps its unsaved-changes dot, and closing a dirty tab or the browser window asks before discarding anything.
+- Leaving edit mode with autosave on saves the latest text first; if the save fails, the editor stays open instead of losing it.
 
 ## Editor Behavior
 
@@ -34,7 +36,7 @@ lx8 is editor-first: clicking a text file opens it ready to type, not just to re
 | `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` | Undo / redo (native text editing). |
 | `Esc` | Leaves edit mode. |
 
-Find and replace operate on the live text; Replace and Replace All update the buffer, which is written on the next save.
+Find and replace operate on the live text, before autosave; Replace and Replace All update the buffer and are written by the next autosave.
 
 - **Word wrap** follows the same setting as the code view (`editor.wordWrap`, `Alt+Z`). Long lines wrap at the editor edge and the gutter number stays aligned with the first row of each wrapped line.
 - **Syntax highlighting** is generated locally and follows the same theme colours as the read-only view. Files above 400,000 characters fall back to plain text in the textarea so typing stays responsive.

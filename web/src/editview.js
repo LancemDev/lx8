@@ -291,13 +291,20 @@ export async function exitEditMode(force = false) {
   const d = doc_();
   if (!d || !d.isEditing) return;
 
+  cancelAutosave(d);
   if (d.dirty && !force) {
-    if (!confirm(`You have unsaved changes in "${d.name}". Discard changes and exit edit mode?`)) {
-      return;
+    if (autosaveEnabled()) {
+      // Leaving is not a reason to lose the last few keystrokes: write them,
+      // and stay in the editor if the write fails.
+      if (!(await saveDoc(d, editTextarea.value, { silent: true }))) return;
+    } else {
+      if (!confirm(`You have unsaved changes in "${d.name}". Discard changes and exit edit mode?`)) {
+        return;
+      }
+      d.dirty = false;
+      d.editContent = null;
+      drawTabs();
     }
-    d.dirty = false;
-    d.editContent = null;
-    drawTabs();
   }
 
   // Ctrl+E opened the raw text from the table view; go back to the table.
@@ -356,8 +363,8 @@ async function writeDoc(d, content, { active = false, silent = false } = {}) {
   }
 }
 
-// Saves for one doc run in order, so a quick second save cannot land before
-// the first and leave the file on stale text.
+// Saves for one doc run in order, so a quick autosave cannot land before an
+// older keystroke's write and leave the file on stale text.
 async function saveDoc(d, content, opts = {}) {
   if (!d || !d.isEditing) return false;
   const previous = saveChains.get(d) || Promise.resolve();
@@ -370,9 +377,71 @@ async function saveDoc(d, content, opts = {}) {
   }
 }
 
+const AUTOSAVE_DELAY = 800;
+const autosaveTimers = new WeakMap();
+
+function autosaveEnabled() {
+  const value = S.settings && S.settings['editor.autosave'];
+  return value !== false && value !== 'false';
+}
+
+function cancelAutosave(d) {
+  const timer = autosaveTimers.get(d);
+  if (timer) {
+    clearTimeout(timer);
+    autosaveTimers.delete(d);
+  }
+}
+
+function currentContent(d) {
+  return d === doc_() ? editTextarea.value : (d.editContent ?? '');
+}
+
+function scheduleAutosave(d) {
+  if (!d || d.autosaveSuspended || !autosaveEnabled()) return;
+  cancelAutosave(d);
+  const timer = setTimeout(() => {
+    autosaveTimers.delete(d);
+    if (!autosaveEnabled() || d.autosaveSuspended || !d.isEditing || !d.dirty) return;
+    void saveDoc(d, currentContent(d), { silent: true });
+  }, AUTOSAVE_DELAY);
+  autosaveTimers.set(d, timer);
+}
+
+function flushAutosave(d) {
+  if (!d) return;
+  cancelAutosave(d);
+  if (d.autosaveSuspended || !d.isEditing || !d.dirty || !autosaveEnabled()) return;
+  void saveDoc(d, currentContent(d), { silent: true });
+}
+
+/* Rename and delete need the disk to stay still while they run. Suspend the
+   timers for the affected tabs and wait for any write already in flight, so a
+   late autosave cannot recreate the old path after it has moved or gone. */
+export async function suspendAutosaveForPath(path, isDir = false) {
+  const waits = [];
+  for (const d of S.tabs) {
+    if (d.path !== path && !(isDir && d.path.startsWith(path + '/'))) continue;
+    d.autosaveSuspended = true;
+    cancelAutosave(d);
+    const chain = saveChains.get(d);
+    if (chain) waits.push(chain.catch(() => false));
+  }
+  await Promise.all(waits);
+}
+
+export function resumeAutosaveForPath(path, isDir = false) {
+  for (const d of S.tabs) {
+    if (d.path !== path && !(isDir && d.path.startsWith(path + '/'))) continue;
+    delete d.autosaveSuspended;
+    if (d.dirty) scheduleAutosave(d);
+  }
+}
+
 export async function saveActiveFile() {
   const d = doc_();
   if (!d || !d.isEditing) return;
+  cancelAutosave(d);
   const content = editTextarea.value;
   if (await saveDoc(d, content, { active: true })) {
     showToast('✓', 'Saved ' + d.name);
@@ -392,6 +461,7 @@ export async function saveAllFiles() {
   }
   let saved = 0;
   for (const d of dirty) {
+    cancelAutosave(d);
     const content = d === doc_() ? editTextarea.value : (d.editContent || '');
     if (await saveDoc(d, content)) saved++;
   }
@@ -535,6 +605,7 @@ export function initEditView() {
         d.dirty = true;
         drawTabs();
       }
+      scheduleAutosave(d);
       emit('edit:input', { doc: d });
     }
     updateGutter();
@@ -588,7 +659,8 @@ export function initEditView() {
     }
   });
 
-  on('tab:activated', ({ doc }) => {
+  on('tab:activated', ({ doc, prevDoc }) => {
+    if (prevDoc && prevDoc !== doc) flushAutosave(prevDoc);
     if (!doc) return;
     // reloadOpenTabs() replaces doc objects without going through the tab
     // switch path, so re-sync here rather than assuming the view is current.
@@ -602,9 +674,11 @@ export function initEditView() {
     maybeAutoEdit(doc);
   });
 
-  // A closed tab no longer owns the editor.
+  // A pending autosave must not write a file after its tab was closed,
+  // renamed, or deleted. Closing means the text is no longer wanted.
   on('tab:closed', ({ doc }) => {
     if (!doc) return;
+    cancelAutosave(doc);
     doc.isEditing = false;
     if (loadedDoc === doc) loadedDoc = null;
   });
@@ -613,7 +687,8 @@ export function initEditView() {
   btnSaveFile?.addEventListener('click', () => saveActiveFile());
   btnCancelEdit?.addEventListener('click', () => exitEditMode());
 
-  // Unsaved edits are lost on reload or close; ask the browser to confirm.
+  // The debounce is short, but a reload or window close during it would still
+  // lose the last edit. Ask the browser to confirm instead of doing it silently.
   addEventListener('beforeunload', e => {
     if (!S.tabs.some(t => t.isEditing && t.dirty)) return;
     e.preventDefault();

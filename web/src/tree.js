@@ -7,6 +7,7 @@ import { closeSelMenu } from './selbar.js';
 import { emit, on } from './bus.js';
 import { isAutoRevealEnabled } from './settings.js';
 import { promptNewItem, promptRename } from './newitem.js';
+import { suspendAutosaveForPath, resumeAutosaveForPath } from './editview.js';
 import { triggerRefresh } from './gitstream.js';
 
 export const treeEl = $('#tree');
@@ -572,6 +573,7 @@ export function initTree() {
         const kind = isDir ? 'folder' : 'file';
         if (!confirm(`Delete ${kind} "${path}"? This cannot be undone.`)) return;
         if (!confirmDiscardTabsUnderPath(path, isDir)) return;
+        await suspendAutosaveForPath(path, isDir);
         try {
           await apiPostJson('/api/fs/delete', { path });
           closeTabsUnderPath(path, isDir);
@@ -579,6 +581,7 @@ export function initTree() {
           await refreshTree();
           triggerRefresh();
         } catch (err) {
+          resumeAutosaveForPath(path, isDir);
           showToast('!', 'Failed to delete: ' + (err.message || 'unknown error'));
         }
       } else if (act === 'copy-relative') {
