@@ -6,7 +6,7 @@ lx8 opens `.csv` and `.tsv` files as a table by default. `Alt+M` switches betwee
 
 ## Overview & Core Purpose
 
-Data files turn up in most repositories: fixtures, benchmark results, exported reports, seed data, and files a coding agent has just written. Read as raw text, the columns drift apart as soon as values differ in width, and a quoted cell containing a comma or a line break is hard to follow by eye.
+Data files turn up in most repositories: fixtures, benchmark results, exported reports, seed data, and generated output. Read as raw text, the columns drift apart as soon as values differ in width, and a quoted cell containing a comma or a line break is hard to follow by eye.
 
 The table view lines the columns up, keeps the header row in sight while you scroll, and numbers each row by the source line it starts on, so line references still mean the same thing in both views.
 

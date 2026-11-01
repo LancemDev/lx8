@@ -14,7 +14,7 @@ General-purpose browser code editors (such as Monaco, CodeMirror 6, or Ace) are 
 - Their initialization latency takes hundreds of milliseconds.
 - Complex DOM representations degrade frame rates when scrolling large files.
 
-Because lx8 is a code inspection and navigation tool that does not edit text in the virtualized surface (direct edits use a separate textarea view, see [File Editing](file-editing.md); larger changes go through a coding harness), it bypasses heavy third-party editor runtimes entirely. Instead, it implements a custom, high-performance virtualized surface with a fixed DOM footprint (~60 active nodes) and sub-millisecond paint budgets. This architectural choice keeps the frontend browser tab's RAM strictly bounded (~80–150 MB), ensuring that the combined client-server footprint (~100–180 MB) remains an order of magnitude leaner than Electron IDEs without suffering memory creep on large files.
+Because lx8 is a code inspection and navigation tool that does not edit text in the virtualized surface (direct edits use a separate textarea view, see [File Editing](file-editing.md)), it bypasses heavy third-party editor runtimes entirely. Instead, it implements a custom, high-performance virtualized surface with a fixed DOM footprint (~60 active nodes) and sub-millisecond paint budgets. This architectural choice keeps the frontend browser tab's RAM strictly bounded (~80–150 MB), ensuring that the combined client-server footprint (~100–180 MB) remains an order of magnitude leaner than Electron IDEs without suffering memory creep on large files.
 
 ## 2. DOM Surface Hierarchy
 
@@ -184,4 +184,4 @@ Pressing `Ctrl+A` / `Cmd+A` outside a text input does not use the browser's nati
 
 ### Selection Actions
 
-Any selection, native or whole-file, drives the footer selection bar (`#footer-sel`) and the right-click menu (`#sel-menu`) in [`web/src/selbar.js`](../../web/src/selbar.js): Copy Ref, Copy with Context, Edit Inline, Find Usages, and reference copying via `Alt+C`. The viewport's `mousedown` handler only moves the caret for the primary button, so a right click on a selection neither moves the caret nor collapses the selection. See [Harness Editing & Agent Dispatch](agent-editing.md).
+Any selection, native or whole-file, drives the footer selection bar (`#footer-sel`) and the right-click menu (`#sel-menu`) in [`web/src/selbar.js`](../../web/src/selbar.js): Copy Source, Copy Ref, Copy with Context, and Find Usages. The viewport's `mousedown` handler only moves the caret for the primary button, so a right click on a selection neither moves the caret nor collapses the selection.

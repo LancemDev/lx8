@@ -332,7 +332,7 @@ type workbench struct {
 	basePath  string
 	cwd       string
 	exe       string
-	childArgs []string // flags handed on to every child (-no-lsp, -agent, ...)
+	childArgs []string // flags handed on to every child (-no-lsp, -no-git)
 
 	mu       sync.Mutex
 	children map[string]*wbChild
@@ -483,7 +483,7 @@ func (wb *workbench) run(c *wbChild, it wbItem, forget bool) {
 	}}
 	cmd.Stdout = out
 	cmd.Stderr = &lineWriter{fn: c.appendLog}
-	// A language server or harness the child started could hold its output
+	// A language server the child started could hold its output
 	// open after it exits; do not let that keep Wait from returning.
 	cmd.WaitDelay = wbStopGrace
 	stdin, err := cmd.StdinPipe()

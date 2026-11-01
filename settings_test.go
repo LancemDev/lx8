@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -39,9 +40,6 @@ func TestSettingsDefaults(t *testing.T) {
 	}
 	if m["lsp.enabled"] != true {
 		t.Errorf("expected lsp.enabled true, got %v", m["lsp.enabled"])
-	}
-	if m["agent.timeoutSeconds"] != 120.0 && m["agent.timeoutSeconds"] != 120 {
-		t.Errorf("expected agent.timeoutSeconds 120, got %v", m["agent.timeoutSeconds"])
 	}
 	if m["server.basePath"] != "/" {
 		t.Errorf("expected server.basePath /, got %v", m["server.basePath"])
@@ -103,63 +101,62 @@ func TestSettingsAutoReveal(t *testing.T) {
 	}
 }
 
-func TestSettingsPreserveNonAgentValues(t *testing.T) {
+func isolateSettings(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	return dir
+}
+
+// TestSettingsLegacyKeysIgnored: a settings file written by an older lx8 that
+// still carries removed keys loads without error, and those keys don't affect
+// anything else.
+func TestSettingsLegacyKeysIgnored(t *testing.T) {
 	cfg := isolateSettings(t)
-
-	// Step 1: Update editor settings
-	err := updateSettingsMap(map[string]any{
-		"editor.fontSize":      16.0,
-		"workbench.colorTheme": "gruvbox-dark",
-		"custom.property":      "hello",
-	})
-	if err != nil {
-		t.Fatalf("updateSettingsMap failed: %v", err)
+	legacy := `{
+  "agent": "claude",
+  "agent.harness": "claude",
+  "agent.timeoutSeconds": 300,
+  "agent.models": {"claude": "sonnet"},
+  "models": {"claude": "sonnet"},
+  "git.commitMessageInstruction": "Follow Conventional Commits",
+  "editor.fontSize": 16
+}`
+	if err := os.MkdirAll(filepath.Join(cfg, "lx8"), 0o755); err != nil {
+		t.Fatal(err)
 	}
-
-	// Step 2: Agent selects a harness (which calls writeSettings)
-	err = writeSettings(settings{
-		Agent: "claude",
-		Models: map[string]string{
-			"claude": "sonnet",
-		},
-	})
-	if err != nil {
-		t.Fatalf("writeSettings failed: %v", err)
+	if err := os.WriteFile(filepath.Join(cfg, "lx8", "settings.json"), []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
 	}
-
-	// Step 3: Verify editor settings were NOT wiped
+	s := readSettings()
+	if s.EditorFontSize == nil || *s.EditorFontSize != 16 {
+		t.Fatalf("editor.fontSize = %v, want 16", s.EditorFontSize)
+	}
 	m := readMergedSettingsMap()
 	if m["editor.fontSize"] != 16.0 {
-		t.Errorf("editor.fontSize was overwritten: got %v, want 16", m["editor.fontSize"])
+		t.Errorf("merged editor.fontSize = %v, want 16", m["editor.fontSize"])
 	}
-	if m["workbench.colorTheme"] != "gruvbox-dark" {
-		t.Errorf("workbench.colorTheme was overwritten: got %v, want gruvbox-dark", m["workbench.colorTheme"])
+	if err := updateSettingsMap(map[string]any{"editor.tabSize": 2.0}); err != nil {
+		t.Fatalf("updateSettingsMap with legacy keys present: %v", err)
 	}
-	if m["custom.property"] != "hello" {
-		t.Errorf("custom.property was lost: got %v, want hello", m["custom.property"])
-	}
-	if m["agent"] != "claude" || m["agent.harness"] != "claude" {
-		t.Errorf("agent not set properly: %v", m["agent"])
-	}
-
-	// Step 4: Verify file on disk
-	data, err := os.ReadFile(filepath.Join(cfg, "lx8", "settings.json"))
-	if err != nil {
-		t.Fatalf("failed to read settings file: %v", err)
-	}
-	var diskMap map[string]any
-	if err := json.Unmarshal(data, &diskMap); err != nil {
-		t.Fatalf("corrupt settings JSON: %v", err)
-	}
-	if diskMap["editor.fontSize"] != 16.0 {
-		t.Errorf("diskMap missing editor.fontSize: %v", diskMap)
+	for _, it := range settingsSchema {
+		if strings.HasPrefix(it.Key, "agent.") || it.Key == "git.commitMessageInstruction" {
+			t.Errorf("schema still lists removed key %q", it.Key)
+		}
 	}
 }
 
 func TestSettingsAPIEndpoints(t *testing.T) {
 	isolateSettings(t)
 	root := t.TempDir()
-	srv := agentServer(t, root, "echo")
+	ix := NewIndex(root)
+	ix.Build()
+	srv := NewServer(ix, nil)
+	t.Cleanup(func() {
+		if srv.gitWatcher != nil {
+			srv.gitWatcher.Stop()
+		}
+	})
 
 	// 1. GET /api/settings
 	req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
@@ -178,7 +175,7 @@ func TestSettingsAPIEndpoints(t *testing.T) {
 
 	// 2. POST /api/settings with key/value updates
 	payload := map[string]any{
-		"editor.tabSize":       2,
+		"editor.tabSize":              2,
 		"diffEditor.renderSideBySide": false,
 	}
 	b, _ := json.Marshal(payload)
@@ -265,4 +262,3 @@ func TestSettingsBasePath(t *testing.T) {
 		t.Errorf("expected ServerBasePath /rev-456/ from fallback, got %v", s.ServerBasePath)
 	}
 }
-

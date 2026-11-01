@@ -6,10 +6,10 @@ This document describes the high-level architecture, startup pipeline, HTTP serv
 
 lx8 is engineered as an ultra-fast, zero-overhead code exploration console. Its architecture is guided by five foundational tenets:
 
-1. Edits Are Mostly Delegated: lx8 navigates, searches, and inspects code. Large or multi-file changes are made by a coding harness lx8 dispatches on request, one per non-overlapping line range so several can run at once (see [Harness Editing & Agent Dispatch](agent-editing.md)). Small direct edits and new files are the one exception: `/api/file/save` and `/api/fs/new` write content typed in the browser (see [File Editing](file-editing.md)).
+1. Explicit Writes Only: lx8 navigates, searches, and inspects code. File content is only written by the user's own edits and new files: `/api/file/save` and `/api/fs/new` write content typed in the browser (see [File Editing](file-editing.md)).
 1. Single Static Binary Footprint: All frontend assets (HTML, CSS, JavaScript, icons, themes) are embedded directly into the Go binary at compile time via `go:embed`. lx8 requires no Node.js, Python, or Ruby runtime, no external database, and no CGO dependencies.
 1. Sub-Millisecond Responsiveness: The HTTP listener binds, serves the web UI, and opens the default browser in under 1 millisecond. Heavy operations (full directory indexing, git status checks, language server binary discovery) run asynchronously off the critical path.
-1. Stateless in the Workspace: lx8 never writes configuration directories, temporary caches, or metadata files (e.g., `.lx8/` or `.cache/`) into a workspace. Indexes and caches live in volatile memory. Outside the workspace it keeps the remembered harness choice and update state under `~/.lx8/` (or `$XDG_CONFIG_HOME/lx8/`), and per-workspace session files (PR review drafts) and the workbench store under `~/.lx8/` (or `$XDG_STATE_HOME/lx8/`).
+1. Stateless in the Workspace: lx8 never writes configuration directories, temporary caches, or metadata files (e.g., `.lx8/` or `.cache/`) into a workspace. Indexes and caches live in volatile memory. Outside the workspace it keeps settings and update state under `~/.lx8/` (or `$XDG_CONFIG_HOME/lx8/`), and per-workspace session files (PR review drafts) and the workbench store under `~/.lx8/` (or `$XDG_STATE_HOME/lx8/`).
 1. Strict Memory Reclamation: Long-lived background processes should not hold idle RAM. When the user finishes a burst of queries, unused pages are proactively returned to the operating system.
 
 The browser's file tabs are managed in `web/src/tabs.js`. Tab context-menu actions and the tab close button share cache cleanup. A bulk close updates the browser view once after removing the selected tabs. Open tabs are not saved: a reload starts with no tabs open.
@@ -106,11 +106,6 @@ When hosted behind reverse proxies or multi-tenant review platforms, lx8 support
 | `/api/lsp/start`      | `POST` | Starts language server for path or server name (`?server=...` or `?path=...`) | JSON status payload        |
 | `/api/lsp/stop`       | `POST` | Stops language server (`?server=...`) or all running language servers   | JSON status payload        |
 | `/api/lsp/servers`    | `GET`  | Lists relevant language servers for workspace with status and metrics   | JSON (`{enabled, anyRunning, servers}`)|
-| `/api/agent/harnesses`| `GET`  | Detected coding harnesses and the current choice                        | JSON (`{harnesses, selected, pinned, settings}`) |
-| `/api/agent/select`   | `POST` | Choose and remember a harness (`?name=...`)                             | JSON (`{harnesses, selected, pinned, settings}`) |
-| `/api/agent/edit`     | `POST` | Dispatch an instruction to the harness (`?path=...&l1=...&l2=...&instruction=...`) | JSON job snapshot               |
-| `/api/agent/job`      | `GET`  | Snapshot of job `?id=...`, or the most recently started when omitted: output, changed files | JSON job snapshot          |
-| `/api/agent/cancel`   | `POST` | Stop every running harness                                              | JSON (`{cancelled}`)                       |
 
 ## 4. Memory Management & Proactive Scavenging
 
@@ -186,12 +181,12 @@ When navigating code via LSP Go-to-Definition, targets often reside outside the 
 
 ### Origin Verification for Installers
 
-The `/api/lsp/install` and `/api/lsp/start` endpoints execute shell commands (e.g., `go install ...` or `npm install -g ...`), and the `/api/agent/*` mutations run a coding harness. To guard against cross-origin attacks (such as a malicious website triggering command execution via JavaScript fetch while lx8 is running in the background):
+The `/api/lsp/install` and `/api/lsp/start` endpoints execute shell commands (e.g., `go install ...` or `npm install -g ...`), and other mutating endpoints change the workspace. To guard against cross-origin attacks (such as a malicious website triggering command execution via JavaScript fetch while lx8 is running in the background):
 
 1. The request method must be `POST`.
 1. The request `Origin` header must match the request `Host` header.
 1. The `Host` header is validated to ensure it is strictly an IP address (`127.0.0.1`, `[::1]`) or `localhost`. This prevents DNS-rebinding attacks.
-1. The executed command is never supplied by the client; it is looked up exclusively from the hard-coded internal `lspRegistry`, or, for agent edits, from the harness the user picked (only the instruction text comes from the client).
+1. The executed command is never supplied by the client; it is looked up exclusively from the hard-coded internal `lspRegistry`.
 
 ### Content Security Policy (CSP)
 

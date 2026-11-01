@@ -40,9 +40,9 @@ To keep iteration fast and avoid unnecessary delays:
 
 ## 3. Core Architectural Tenets
 
-1. **Reads First, Edits via Harness**: `lx8` is an ultra-fast code reader and reviewer. File modifications are delegated to external coding harnesses (`agent.go`, `thread.go`), never authored directly to disk by `lx8` (with the exception of explicit user-initiated Git operations in the sidebar).
+1. **Reads First, Explicit Writes Only**: `lx8` is an ultra-fast code reader, editor and reviewer. Files are written only by the user's own saves and creates in the browser, and git state only by explicit user-initiated Git operations in the sidebar.
 2. **Zero Runtime Dependencies**: The output must remain a single, standalone static binary. No CGO, no Node.js runtime requirement for the user, no external databases.
-3. **No Workspace Litter**: `lx8` never creates `.lx8/` folders or cache files inside a workspace tree. Persistent configuration and thread transcripts live in `$XDG_CONFIG_HOME/lx8/` or `~/.lx8/`; per-workspace session files (PR review drafts) and the workbench store live in `$XDG_STATE_HOME/lx8/` or `~/.lx8/`.
+3. **No Workspace Litter**: `lx8` never creates `.lx8/` folders or cache files inside a workspace tree. Persistent configuration lives in `$XDG_CONFIG_HOME/lx8/` or `~/.lx8/`; per-workspace session files (PR review drafts) and the workbench store live in `$XDG_STATE_HOME/lx8/` or `~/.lx8/`.
 4. **Fast & Non-Blocking**: Operations must remain responsive. All background tasks, network calls, and git operations must respect timeouts and set `GIT_TERMINAL_PROMPT=0`.
 
 ---
@@ -63,7 +63,7 @@ To keep iteration fast and avoid unnecessary delays:
     {
       "id": "feature-slug",
       "title": "Concise Feature Title",
-      "category": "Navigation | Git | AI | Editing | Viewer | Workbench | Performance",
+      "category": "Navigation | Git | Editing | Viewer | Workbench | Performance",
       "tag": "TagPill",
       "content": "One to two sentences explaining the feature with **bold**, `code`, or <kbd> tags.",
       "shortcut": "Mod+Key" // optional

@@ -296,12 +296,6 @@ export function handleVimKeyDown(e) {
       exitVisualMode();
       return true;
     }
-    if (e.key === 'e' || e.key === 'c') {
-      e.preventDefault();
-      runSelectionAction('agent-edit');
-      exitVisualMode();
-      return true;
-    }
     if (e.key === 'u') {
       e.preventDefault();
       runSelectionAction('usages');
@@ -632,11 +626,10 @@ export const VIM_SHORTCUT_SECTIONS = [
     ]
   },
   {
-    title: 'Visual Mode & AI Agent Actions',
+    title: 'Visual Mode',
     items: [
       [['v'], 'Character-wise visual selection'],
       [['V'], 'Line-wise visual selection'],
-      [['e', 'c'], 'Edit selection inline with AI coding agent'],
       [['y'], 'Yank (copy) code to clipboard'],
       [['Y'], 'Yank reference (file:line-range)'],
       [['u'], 'Find usages of selected symbol'],
@@ -690,7 +683,7 @@ export function showVimHelp() {
     '<div class="vim-help-content">' + sectionsHtml + '</div>' +
     '<div class="vim-help-footer">' +
     '<button id="btn-switch-to-std-help" class="settings-btn-link" title="View Standard Shortcuts (?)">View Standard Shortcuts (?)</button>' +
-    '<span class="agent-hint">Press Esc or click outside to dismiss</span>' +
+    '<span class="cmt-hint">Press Esc or click outside to dismiss</span>' +
     '</div>' +
     '</div>';
 

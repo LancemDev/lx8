@@ -1,6 +1,6 @@
 # Direct File Editing & Creation
 
-lx8 is editor-first: clicking a text file opens it ready to type, not just to read. This is for small, direct changes. Larger or multi-file changes still go through a coding harness (see [Agent Editing](agent-editing.md)).
+lx8 is editor-first: clicking a text file opens it ready to type, not just to read.
 
 ---
 

@@ -8,7 +8,7 @@ lx8 includes an optional Vim modal navigation mode. When enabled, it provides st
 
 Many developers maintain decades of muscle memory built around modal text editing. Moving your hand away from the keyboard to grab a mouse or repeatedly pressing arrow keys disrupts cognitive momentum.
 
-lx8's Vim mode brings the speed and ergonomics of modal motions into the code viewer. Because lx8 is focused on code reading and auditing, Vim mode focuses on navigation, scrolling, line jumping, and range selection. When you highlight text in Visual mode, the selection immediately bridges into lx8's context actions—allowing you to press `Alt+C` to copy a reference, `Alt+A` to copy formatted context for an LLM, or `Alt+E` to dispatch an edit to your coding agent.
+lx8's Vim mode brings the speed and ergonomics of modal motions into the code viewer. Because lx8 is focused on code reading and auditing, Vim mode focuses on navigation, scrolling, line jumping, and range selection. When you highlight text in Visual mode, the selection immediately bridges into lx8's context actions—allowing you to press `Alt+C` to copy a reference, `Alt+A` to copy the snippet with its file path and line numbers, or `Alt+U` to find usages.
 
 ---
 
@@ -47,8 +47,7 @@ Active by default when Vim mode is enabled.
 - While text is selected in Visual mode:
   - `y`: Yank (copy) selected text to clipboard.
   - `Alt+C`: Copy reference pointer (`path#L10-L25`).
-  - `Alt+A`: Copy formatted context for AI prompts.
-  - `Alt+E`: Open coding agent composer on selected range.
+  - `Alt+A`: Copy the snippet with its file path and line numbers.
 
 ---
 

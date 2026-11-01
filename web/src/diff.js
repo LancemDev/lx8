@@ -170,7 +170,6 @@ function renderDiff(d) {
     frag.append(createDiffSection(d, 'commit', 'In commit ' + d.diffRef.slice(0, 7),
       'this commit only, not the working tree', (bodyEl) => appendHunks(bodyEl, hunks, d.diffMode, false)));
     diffContent.append(frag);
-    syncDiffAgentTargets();
     if (prSyncHandler) prSyncHandler();
     return;
   }
@@ -215,7 +214,6 @@ function renderDiff(d) {
     appendHunks(frag, d.diffHunks, d.diffMode, true);
   }
   diffContent.append(frag);
-  syncDiffAgentTargets();
   if (prSyncHandler) prSyncHandler();
 }
 
@@ -287,7 +285,7 @@ function sectionNote(text) {
   return el;
 }
 
-/* One-way registration for pr.js, mirroring agent.js's hook into selbar.js:
+/* One-way registration for pr.js, mirroring pr.js's hook into selbar.js:
    diff.js never imports pr.js, it just calls this after every repaint when a
    PR review session has set it. */
 let prSyncHandler = null;
@@ -350,20 +348,6 @@ function currentDiffLine() {
     }
   }
   return null;
-}
-
-export function syncDiffAgentTargets() {
-  if (!diffview || diffview.hidden) return;
-  const d = doc_();
-  if (!d) return;
-  const ranges = (S.agentTargets || []).filter(t => t.path === d.path);
-  for (const el of diffview.querySelectorAll('[data-l]')) {
-    const l = +el.dataset.l;
-    const inAgent = ranges.some(r => l >= r.l1 && l <= r.l2);
-    const isAnchor = ranges.some(r => l === r.l1);
-    el.classList.toggle('agent-sel', inAgent);
-    el.classList.toggle('agent-anchor', isAnchor);
-  }
 }
 
 function hunkHeader(hunk) {
@@ -499,7 +483,7 @@ function splitSide(row, side, reviewable = true) {
    checked-out head commit, which is what a submitted review is posted
    against), false for the reviewer's local "Your changes" section, whose
    lines don't correspond to anything pushed yet. linecomment.js reads this
-   to fall back to a plain inline AI edit instead of opening the composer. */
+   to leave the review-comment action out of the line menu. */
 function anchor(el, row, reviewable = true) {
   if (row.newLine !== undefined) el.dataset.l = row.newLine;
   else if (row.at !== undefined) el.dataset.at = row.at;
@@ -518,7 +502,7 @@ function lineCell(n, reviewable = true) {
     const btn = document.createElement('span');
     btn.className = 'line-btn';
     btn.setAttribute('role', 'button');
-    btn.title = (S.meta?.pr && reviewable) ? 'Thread, review comment and line actions' : 'Thread and line actions';
+    btn.title = (S.meta?.pr && reviewable) ? 'Review comment and line actions' : 'Line actions';
     btn.textContent = 'Edit';
     el.append(btn);
   }

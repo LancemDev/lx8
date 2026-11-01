@@ -16,7 +16,7 @@ Two core lx8 tenets shape pull request reviews:
 
 - **Zero-dependency shell-out**: Like `git.go` (which links no Go git library), lx8 avoids external forge SDKs. Every provider uses standard Go `net/http` against its forge's REST API, plus an optional shell-out to the forge's CLI for a token (`gh auth token`, `glab config get token`). Checkout itself uses standard `git fetch`, `git worktree add`, or `git clone` via `exec.Command`.
 - **Stateless on disk**: lx8 maintains no persistent cache in `~/.lx8`. A PR checkout is strictly process-scoped: `checkoutPR` (`pr.go`) places the worktree in `os.MkdirTemp("", "lx8-pr-*")`, and `prSession.Close` removes it upon exit (`Ctrl+C` or normal shutdown). This ensures zero leftover disk clutter and prevents stale cache bugs.
-- **Persisted draft comments**: Draft comments live in `prSession.comments` as a thread-safe, mutex-guarded slice in server memory. Every add, delete and submit also writes them to the workspace session file (see [§6](#6-draft-comments-submission--batch-apply)), so unsubmitted drafts survive a restart of the same review.
+- **Persisted draft comments**: Draft comments live in `prSession.comments` as a thread-safe, mutex-guarded slice in server memory. Every add, delete and submit also writes them to the workspace session file (see [§6](#6-draft-comments--submission)), so unsubmitted drafts survive a restart of the same review.
 
 ---
 
@@ -166,7 +166,7 @@ Gating: `Server.handlePRMeta` passes `writeAccess` to the frontend. Enforcement:
 ### Unauthenticated Read-Only Mode
 If no token is found:
 - Public repository metadata, worktree creation, and diff calculation proceed normally.
-- Draft comments can be created locally and batch-applied with AI agents.
+- Draft comments can be created locally.
 - The CLI banner names the forge and where a token would be found (`Info().TokenHint`), for example:
   ```text
   access: read-only (no GitHub token: set GITHUB_TOKEN, set GH_TOKEN, or run `gh auth login` to submit reviews)
@@ -198,7 +198,7 @@ func gitMergeBase(root, a, b string) string
 
 ---
 
-## 6. Draft Comments, Submission & Batch Apply
+## 6. Draft Comments & Submission
 
 ### Drafts and the Session File
 Drafts are held in `prSession.comments` and mirrored to the workspace session file by `sessionManager` ([`session.go`](../../session.go)). Adding or deleting a draft writes `WorkspaceSession.Drafts`; a successful submit clears it. `SetPR` switches the server to the PR's own session file (`newPRSessionManager`), and when `prSession.comments` is empty it loads the saved drafts and advances `nextID` past them.
@@ -210,9 +210,6 @@ The file also has `tabs`, `active` and `openDirs` fields, and `/api/session` sti
 - `GET /api/pr/comments`: Returns current drafts.
 - `POST /api/pr/comments`: Appends a line comment (`Path`, `Line`, `Side`, `Body`). Allowed unauthenticated so reviewers can draft feedback locally.
 - `POST /api/pr/comments/delete`: Deletes a draft by ID.
-
-### Batch Apply with Coding Agents (`⚡ Batch Apply`)
-Users can delegate all drafted PR comments directly to an AI coding agent (Claude Code, Gemini CLI, Cursor Agent, Antigravity, etc.). The agent harness receives the comments as targeted editing instructions and modifies the worktree files directly.
 
 ### Formal Review Submission
 - `POST /api/pr/submit`: Requires auth token.
@@ -248,33 +245,32 @@ Unlike a formal review submission, Push is not gated on `p.writeAccess` — that
 
 `prSession.Close` (§1) force-removes the worktree and deletes `refs/lx8/pr/<N>`/`refs/lx8/base/<N>` when the process exits, with no warning if there are uncommitted or unpushed commits sitting in it. Push is the only way work done in a PR checkout survives past the session — the git panel exists in PR review specifically so that loop (edit, commit, push) never requires dropping out to a terminal mid-review.
 
-### Bringing the PR Up to Date With Its Base (Agent Rebase)
+### Bringing the PR Up to Date With Its Base
 
-The git panel's agent rebase/merge flow ([git-integration internals](git-integration.md)) is reused for a PR's base branch rather than duplicated. `/api/git/sync-state`, `/api/git/sync-agent`, and `/api/git/abort` all check `s.pr`:
+The git panel's sync-state reporting ([git-integration internals](git-integration.md)) is reused for a PR's base branch rather than duplicated. The rebase or merge itself is run by the reviewer in a terminal. `/api/git/sync-state` and `/api/git/abort` both check `s.pr`:
 
-- `prSyncState` builds the same `gitSyncState`, measured against `prBaseRef(N)` (`refs/lx8/base/<N>`) instead of `@{u}`. `PR` carries the number, and `Rewritten` reports whether the checkout's `HEAD` no longer contains the remote PR head (`prSession.Rewritten`). `?fetch=1`, and every dispatch, refresh the base first through `prSession.FetchBase`, a forced fetch with the forge token (the same `fetchPRBase` helper `computeDiffBase` uses).
-- `gitSyncPrompt` gets the unexported `ontoRef` and tells the harness to rebase onto (or `git merge -m "Merge branch '<base>' into <head>"`) that ref, with an explicit "already fetched: do not fetch". The no-push and no-`--skip` rules still apply.
+- `prSyncState` builds the same `gitSyncState`, measured against `prBaseRef(N)` (`refs/lx8/base/<N>`) instead of `@{u}`. `PR` carries the number, and `Rewritten` reports whether the checkout's `HEAD` no longer contains the remote PR head (`prSession.Rewritten`). `?fetch=1` refreshes the base first through `prSession.FetchBase`, a forced fetch with the forge token (the same `fetchPRBase` helper `computeDiffBase` uses).
 - A rewritten checkout can only reach the PR by a force-push. `/api/git/push` accepts `{"force": true}` in PR sessions only. `prSession.Push(true)` pushes with `--force-with-lease=refs/heads/<head>:<remoteHead>`, so commits pushed by someone else since the checkout cause a refusal instead of being lost. The frontend sends `force` only after the reviewer confirms in the git panel card. After any push, `refreshDiffBase` re-derives the merge-base from the fetched base ref, so a pushed rebase or base merge doesn't fold the base's own changes into "PR changes". `syncPRRefs` then propagates the change to the server and the index.
 - `GitStatusPayload.Rewritten` relabels the Push button to **Force-push**. Pull, Push, and Merge all refuse while a rebase or merge is in progress, and Merge also refuses a rewritten, unpushed checkout, because the forge would otherwise merge the old commits.
 
 ### Merging
 
-`/api/pr/merge-status` combines `MergeStatus` with what the dialog needs: `canMerge` (forge rights, `writeAccess`, and a token), `stale` (the forge head differs from the head this checkout reviewed), `rewritten`, `inProgress`, `unpushed`, the PR's commits (`diffBase..HeadSHA`), and `prMergeDefaults` (forge-neutral default titles and bodies). `/api/pr/merge` sends the reviewed `meta.HeadSHA` as the guard, then re-reads `FetchPR` so the bar flips to Merged. `/api/pr/merge-message` starts a text-only harness job built by `mergeMessagePrompt` from the PR's commits, diffstat, and diff (`gitRangeStat`/`gitRangeDiff`, trimmed like the staged diff), the `git.commitMessageInstruction` setting, the dialog's one-off instruction, and the current draft to rewrite.
+`/api/pr/merge-status` combines `MergeStatus` with what the dialog needs: `canMerge` (forge rights, `writeAccess`, and a token), `stale` (the forge head differs from the head this checkout reviewed), `rewritten`, `inProgress`, `unpushed`, the PR's commits (`diffBase..HeadSHA`), and `prMergeDefaults` (forge-neutral default titles and bodies). `/api/pr/merge` sends the reviewed `meta.HeadSHA` as the guard, then re-reads `FetchPR` so the bar flips to Merged.
 
 ---
 
 ## 8. Frontend Integration
 
-- **Hover Line Thread Icon (`web/src/linecomment.js`)**:
-  - Displays a thread icon (a CSS-masked speech bubble on `.line-btn`) when hovering over line numbers in source or diff views.
+- **Hover Line Button (`web/src/linecomment.js`)**:
+  - Displays a line button (`.line-btn`) when hovering over line numbers in source or diff views.
   - Clicking calls `openLineMenu()` in `selbar.js`, the selection menu aimed at one line. Rows that are part of the PR's diff pass a `fromDiff` description with the diff side, which is what enables **Add Review Comment** there; other rows get only the local actions.
 - **PR Header Bar (`web/src/pr.js`)**:
   - Renders PR number, title, author, branch refs, and draft count badge.
   - Toggles `#pr-merged-badge` (purple pill) when `meta.merged` is true.
-  - Houses **⚡ Batch Apply** and **Submit Review** controls. `renderBar` gates the verdict buttons through `prmerge.js`'s `reviewGate()`.
+  - Houses the **Submit Review** controls. `renderBar` gates the verdict buttons through `prmerge.js`'s `reviewGate()`.
 - **Merge UI (`web/src/prmerge.js`)**:
   - Owns the status pill (`#pr-merge-state`), the split merge button with its method menu (`#pr-merge-group`; the last method is remembered in `localStorage` under `lx8.prMergeMethod`), and the merge dialog (`#pr-merge-modal`). It talks only to `/api/pr/merge-*` and has no forge-specific logic.
-  - Talks to `gitpanel.js` over the bus to avoid an import cycle. It emits `pr:resolve` (fetch the base, then offer rebase or merge), `pr:force-push` (the confirmation card), and `pr:pull`. It listens to `git:sync` (`{running, inProgress, rewritten}`), which drives the pill, the main button, and `reviewGate()`.
+  - Talks to `gitpanel.js` over the bus to avoid an import cycle. It emits `pr:resolve` (fetch the base, then report where the checkout stands), `pr:force-push` (the confirmation card), and `pr:pull`. It listens to `git:sync` (`{inProgress, rewritten}`), which drives the pill, the main button, and `reviewGate()`.
 - **Child PR Launching**:
   - Command Palette **Git: Open Pull Request…** posts to `/api/pr/launch`, or, in a workbench child (`S.meta.workbench` set), to the workbench's `/api/wb/open` (see [workbench.md](workbench.md)).
   - Spawns `lx8 -y <url>` in a new detached process on an ephemeral port.

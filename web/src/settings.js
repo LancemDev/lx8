@@ -273,33 +273,6 @@ const BUILTIN_SCHEMA = [
     default: true
   },
   {
-    key: "agent.harness",
-    title: "Coding Harness",
-    description: "Coding agent harness invoked for code edits (e.g. claude, gemini, cursor-agent, agy, opencode, codex, aider, goose).",
-    category: "Agent / AI",
-    type: "string",
-    default: ""
-  },
-  {
-    key: "agent.timeoutSeconds",
-    title: "Agent Timeout (Seconds)",
-    description: "Controls the maximum execution time in seconds for agent edits before canceling.",
-    category: "Agent / AI",
-    type: "number",
-    default: 120.0,
-    min: 10.0,
-    max: 600.0,
-    step: 10.0
-  },
-  {
-    key: "agent.autoAcceptEdits",
-    title: "Auto Accept Agent Edits",
-    description: "Controls whether agent-generated code diffs are accepted without manual confirmation.",
-    category: "Agent / AI",
-    type: "boolean",
-    default: false
-  },
-  {
     key: "server.basePath",
     title: "Base Path",
     description: "Base URL path prefix for the lx8 server and web interface (e.g. /rev-123/).",
@@ -343,7 +316,6 @@ const COMMONLY_USED_KEYS = new Set([
   'explorer.autoRelveal',
   'search.smartCase',
   'lsp.hover.enabled',
-  'agent.harness',
 ]);
 
 export function isAutoRevealEnabled() {
@@ -713,7 +685,6 @@ function renderSettingsList() {
       if (key === 'editor.fontSize') numberPresets = [12, 13, 13.5, 14, 16, 18];
       else if (key === 'editor.lineHeight') numberPresets = [18, 20, 21, 24, 28];
       else if (key === 'search.maxResults') numberPresets = [200, 500, 1000, 5000];
-      else if (key === 'agent.timeoutSeconds') numberPresets = [60, 120, 180, 300];
 
       const presetPills = numberPresets.length ? `
         <span class="settings-apt-label">Presets:</span>
@@ -732,29 +703,11 @@ function renderSettingsList() {
           ${presetPills}
         </div>`;
     } else if (type === 'textarea') {
-      const placeholder = key === 'git.commitMessageInstruction'
-        ? 'Enter custom instructions for AI commit messages (e.g. Follow Conventional Commits, reference issue key from branch)...'
-        : 'Enter instructions...';
+      const placeholder = 'Enter text...';
       controlHtml = `<textarea class="settings-input settings-textarea" data-key="${esc(key)}" rows="6" spellcheck="false" placeholder="${esc(placeholder)}">${esc(String(val || ''))}</textarea>`;
     } else {
       const isSecret = item.secret || item.Secret;
       controlHtml = `<input type="${isSecret ? 'password' : 'text'}" class="settings-input" data-key="${esc(key)}" value="${esc(String(val || ''))}"${isSecret ? ' autocomplete="off"' : ''}>`;
-      let stringPresets = [];
-      if (key === 'agent.harness') {
-        stringPresets = ['claude', 'gemini', 'cursor-agent', 'agy', 'aider'];
-      }
-      const presetPills = stringPresets.length ? `
-        <div class="settings-apt-bar">
-          <span class="settings-apt-label">Suggestions:</span>
-          <div class="settings-apt-pills">
-            ${stringPresets.map(s => {
-              const isSel = String(val) === s;
-              return `<button type="button" class="settings-pill-tag${isSel ? ' active' : ''}" data-set-key="${esc(key)}" data-set-val="${esc(s)}">${esc(s)}</button>`;
-            }).join('')}
-          </div>
-        </div>` : '';
-
-      aptValuesHtml = presetPills;
     }
 
     const resetBtn = modified
@@ -783,7 +736,7 @@ function renderSettingsList() {
           ${aptValuesHtml}
           ${extraAction}
           <div class="settings-card-meta">
-            ${(type !== 'textarea' && key !== 'git.commitMessageInstruction') ? `<span class="settings-tag tag-current">Current: <b>${esc(String(val))}</b></span>` : ''}
+            ${type !== 'textarea' ? `<span class="settings-tag tag-current">Current: <b>${esc(String(val))}</b></span>` : ''}
             <span class="settings-tag tag-default">Default: <code>${esc(String(def))}</code></span>
             ${modified ? `<span class="settings-tag tag-modified">Modified</span>` : ''}
             ${resetBtn}

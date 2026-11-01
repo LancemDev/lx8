@@ -10,7 +10,6 @@ Instead, lx8 adheres to a Pure Shell-Out Architecture:
 
 - Shells out directly to the host `git` binary, for reads (`status`, `diff`, `merge-base`) and, since the git panel, for writes (`add`, `reset`, `commit`, `push`, `fetch`, `merge --ff-only`, `reset --hard`, `rebase --abort`, `merge --abort`).
 - Status and diffing themselves never stage, commit, or change refs or the index — that half of the engine is still purely read-only. The git panel's write endpoints (`/api/git/stage`, `unstage`, `commit`, `push`, `pull`, `abort`) are the only exception, and every one of them fires exactly once per explicit click; nothing runs on a timer or in response to a file change. See §9.
-- A dispatched coding harness ([Harness Editing & Agent Dispatch](agent-editing.md)) can still write anything else in the workspace — including, via **Commit with AI**, the *text* of a commit message — but never touches git state itself, with one opt-in exception: **Rebase/Merge with AI** (§9), which the user starts explicitly after a pull can't fast-forward. Otherwise only lx8's own git-panel endpoints touch git state.
 - Zero disk footprint: holds all status and diff structures in volatile memory on the `Index` (`Node.Status`, `Node.Staged`).
 - Graceful degradation: if `git` is not installed, or if the opened directory is not a git repository, git features degrade silently without warnings or errors.
 - Can be disabled explicitly using the `-no-git` CLI flag.
@@ -110,7 +109,7 @@ Unlike the main code view, the diff is **not** rendered through the virtualized 
 1. **Unified layout.** One row per parsed line: old-line column, new-line column (whichever side doesn't apply is blank), a `+`/`-` marker, and the code — a direct read of `d.diffHunks`, GitHub-"unified"-style.
 1. **Split layout.** `pairRows(hunk.rows)` walks each hunk and pairs a deletion run with the addition run immediately following it, index by index, padding the shorter side with a blank cell (`.diff-blank`) — the same replacement-block pairing GitHub's split view uses. Context lines pass straight across both columns unpaired. Each pair renders as one flex row with a left/right half, so the two columns stay vertically aligned for free — no synced-scroll JavaScript, because both halves of a pair are literally the same DOM row.
 
-Every rendered row that exists in the working tree carries its line in `data-l`, on both halves of a split context row; a deleted row carries `data-at`, the working-tree line it sat before. `selbar.js` reads these so a selection anywhere in the diff can drive the selection bar, the right-click menu and Edit with Agent (see [Harness Editing & Agent Dispatch](agent-editing.md)).
+Every rendered row that exists in the working tree carries its line in `data-l`, on both halves of a split context row; a deleted row carries `data-at`, the working-tree line it sat before. `selbar.js` reads these so a selection anywhere in the diff can drive the selection bar, and the right-click menu.
 
 Both layouts share the same hunk-header, line-number, marker, and code-cell builders; only the row-shape (one column vs. two) differs, so a fix to how a line renders never needs to be made twice.
 
@@ -243,7 +242,7 @@ sequenceDiagram
 
 ### Auto-Closing Discarded / Reset Diff Tabs
 
-When developers use lx8 to inspect AI agent changes or review git branches, they frequently open modified files directly in git diff view (`diffMode: 'split' | 'unified'`). When changes to those files are subsequently discarded or checked out in the terminal (`git checkout -- file` or `git reset`):
+When developers use lx8 to inspect changes or review git branches, they frequently open modified files directly in git diff view (`diffMode: 'split' | 'unified'`). When changes to those files are subsequently discarded or checked out in the terminal (`git checkout -- file` or `git reset`):
 
 1. **Diff Tab Tracking**: Tabs opened with git changes or toggled into diff view are tagged with `openedInDiffView = true` alongside `diffMode` in [`web/src/tabs.js`](../../web/src/tabs.js).
 2. **Reverse-Order Reconciliation**: When `handleGitStatus(data)` receives an updated status payload where `statuses[t.path]` is clean (`!isDiff`):
@@ -283,25 +282,19 @@ The sidebar git panel (`web/src/gitpanel.js`) and the file tree's per-row stage 
 
 `gitFFOnlyPull(root, remote, ref)` fetches `ref` from `remote` and runs `git merge --ff-only FETCH_HEAD`. If that merge fails for any reason, it returns the sentinel `errNotFastForward` without having touched history — lx8 never falls back to a real merge, so there is never a conflicted state to clean up. `handleGitPull` (`server.go`) first refuses (409, `code: "in-progress"`) if a rebase or merge is already half-done (`gitOpInProgress`, which looks for `rebase-merge`/`rebase-apply`/`MERGE_HEAD` in the git dir), then refuses (409) if the working tree is dirty, then resolves the branch's upstream (`gitUpstream`, wrapping `git rev-parse --abbrev-ref <branch>@{u}`) and calls `gitFFOnlyPull`. On `errNotFastForward` it answers 409 through `failSync`, which carries a `gitSyncState` (`code: "diverged"`, branch, upstream, ahead/behind, in-progress op, dirty) next to the message. The fetch has already landed by then, so the counts describe the remote as it is now.
 
-### Agent Rebase / Merge
+### Divergence and Unfinished Operations
 
-A diverged pull is where lx8's own git writes stop, but the panel can hand the rest to the selected coding harness, only on an explicit click. `POST /api/git/sync-agent` with `{strategy: "rebase" | "merge"}` (`handleGitSyncAgent`) re-reads the sync state, refuses a dirty tree or a mismatched in-progress op, and dispatches `gitSyncPrompt` (`agent.go`) through `agentManager.StartPrompt`, the same one-shot path Commit with AI uses. The prompt states the situation ("git pull is failing ... can't fast-forward ... Run rebase."), the exact commands, how to resolve conflicts, and the rules: never push or force-push, never `rebase --skip`, and `--abort` if a conflict can't be resolved with confidence. When a rebase or merge is already half-done, the prompt asks the harness to finish that one instead of starting over. Mid-rebase HEAD is detached, so `gitRebasingBranch` reads the branch from the rebase's `head-name`.
-
-The frontend doesn't trust the harness's exit status. When the job ends it reads `GET /api/git/sync-state` and branches on where the branch actually is: an op still in progress (offer **Finish with AI** or **Abort**), still behind upstream (didn't complete), or caught up (done, offer **Push**). `POST /api/git/abort` (`gitAbortOp`) runs `git rebase --abort` or `git merge --abort`. PR review sessions don't offer any of this; their Pull keeps its own divergence handling.
+A diverged pull is where lx8's git writes stop. The panel shows a card with the ahead/behind counts and the command to run in a terminal; lx8 never rebases or merges itself. A rebase or merge left half-done (from a terminal) is read on load through `GET /api/git/sync-state` and shown with an **Abort** action: `POST /api/git/abort` (`gitAbortOp`) runs `git rebase --abort` or `git merge --abort`. Mid-rebase HEAD is detached, so `gitRebasingBranch` reads the branch from the rebase's `head-name`.
 
 ### Errors in the Panel, Not Toasts
 
-Git failures render in one inline card at the top of the git panel (`#git-notice`, `notice()`/`showGitError()` in `gitpanel.js`), never as a global toast. The card has a tone (`err`, `warn`, `busy`, `ok`), a title, text, optional actions, an optional harness picker (registered through `registerAgentPicker`, so it mirrors the global selection), and a collapsible harness output log. Showing it un-collapses the panel. It clears on the next successful git action, and while an agent rebase/merge runs, other errors don't replace it. The file tree's stage ticks report failures through the bus (`git:error`) to the same card. Success messages still use toasts.
+Git failures render in one inline card at the top of the git panel (`#git-notice`, `notice()`/`showGitError()` in `gitpanel.js`), never as a global toast. The card has a tone (`err`, `warn`, `busy`, `ok`), a title, text, and optional actions. Showing it un-collapses the panel. It clears on the next successful git action. The file tree's stage ticks report failures through the bus (`git:error`) to the same card. Success messages still use toasts.
 
 In a PR review session, Pull instead re-syncs with the pull request's current head — see [Pull Request Review §7](github-pr-review.md).
 
 ### Push
 
 For a plain workspace, `handleGitPush` runs a bare `gitPush` (`git push`); if that fails specifically because the branch has no upstream, it retries once with `gitPushSetUpstream(root, "origin", branch)`. Neither path ever forces. In a PR review session, `s.pr.Push(force)` takes over instead (`force` only after a confirmed force-push of a rebased PR, as a lease) — see [Pull Request Review §7](github-pr-review.md).
-
-### Commit with AI
-
-**Commit with AI** is a text-generation dispatch, not a file edit: `agentManager.StartPrompt(label, prompt)` (`agent.go`) is a sibling of `StartBatch` that skips every file-range concern — no snippet read, no overlap check, no target path — and reuses the same `run()` executor (spawn, stream stdout/stderr into `tailBuffer`s, `changedSince` diff). `handleGitCommitMessage` (`server.go`) builds the prompt from the staged file paths (`gitStagedFiles`), diffstat (`gitStagedStat`), capped staged diff (`gitStagedDiff`), and the `git.commitMessageInstruction` setting via `commitMessagePrompt` (`agent.go`), and refuses with 400 before ever dispatching a harness if nothing is staged. The frontend polls the returned job through the same `/api/agent/job` endpoint an inline edit uses, drops the (fence-stripped) `stdout` into the commit textarea, and immediately calls `/api/git/commit` with it — two endpoints, one user action.
 
 ### HTTP Surface
 
@@ -312,10 +305,8 @@ For a plain workspace, `handleGitPush` runs a bare `gitPush` (`git push`); if th
 | `/api/git/commit` | POST | `{message}` — commit whatever is staged. `400` if nothing is. |
 | `/api/git/push` | POST | Push the current branch, or (PR session) the PR's head branch. |
 | `/api/git/pull` | POST | Fast-forward pull, or (PR session) re-sync with the PR head. `409` on divergence (with `code: "diverged"` and the sync state), a rebase/merge in progress (`code: "in-progress"`), or uncommitted changes. |
-| `/api/git/sync-agent` | POST | `{strategy}`: dispatch the selected harness to rebase or merge onto the upstream, or finish one in progress. Returns an `agentJob`. |
 | `/api/git/sync-state` | GET | Branch, upstream, ahead/behind, in-progress op, dirty. |
 | `/api/git/abort` | POST | Abort the rebase or merge in progress. `409` if there is none. |
-| `/api/git/commit-message` | POST | Dispatch the selected harness to write a commit message for the staged diff. Returns an `agentJob`, polled via `/api/agent/job`. `400` if nothing is staged or no harness is selected. |
 
 Every write endpoint is guarded by `localPost` ([`lspsetup.go`](../../lspsetup.go)), the same POST-only, same-origin, IP-or-localhost check every other mutating lx8 endpoint uses.
 

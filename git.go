@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net/url"
@@ -240,112 +239,6 @@ func gitStagedPaths(root string) map[string]bool {
 	return staged
 }
 
-// gitStagedFiles returns a list of repo-relative paths staged in the index.
-func gitStagedFiles(root string) []string {
-	info := gitProbe(root)
-	if !info.ok {
-		return nil
-	}
-	out, err := exec.Command("git", "-C", root, "diff", "--name-only", "--cached", "-z").Output()
-	if err != nil {
-		return nil
-	}
-	key := repoRelKey(info, root)
-	var files []string
-	for _, p := range strings.Split(string(out), "\x00") {
-		if p == "" {
-			continue
-		}
-		if k, ok := key(p); ok {
-			files = append(files, k)
-		}
-	}
-	return files
-}
-
-// gitStagedStat returns the diffstat summary of staged changes against HEAD.
-// Fails quiet -> "".
-func gitStagedStat(root string) string {
-	if !gitAvailable(root) {
-		return ""
-	}
-	out, err := exec.Command("git", "-C", root, "diff", "--stat", "--cached").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
-const (
-	maxStagedDiffBytes = 32 * 1024 // 32 KB limit on staged diff to stay safely under ARG_MAX / MAX_ARG_STRLEN
-)
-
-var lockfileExclusions = []string{
-	":(exclude)*package-lock.json",
-	":(exclude)*yarn.lock",
-	":(exclude)*pnpm-lock.yaml",
-	":(exclude)*go.sum",
-	":(exclude)*Cargo.lock",
-	":(exclude)*composer.lock",
-	":(exclude)*poetry.lock",
-	":(exclude)*Gemfile.lock",
-	":(exclude)*.min.js",
-	":(exclude)*.min.css",
-	":(exclude)*.map",
-}
-
-// gitStagedDiff returns the unified diff of the index (staged changes)
-// against HEAD, for handing to a coding harness asked to write a commit
-// message. Large diffs are capped to maxStagedDiffBytes and noise files
-// (lockfiles, minified assets) are excluded when other changes exist.
-// Fails quiet -> "".
-func gitStagedDiff(root string) string {
-	return gitPromptDiff(root, "--cached")
-}
-
-// gitRangeDiff is gitStagedDiff for the commits between from and to: what a
-// squash of a PR would land, trimmed the same way for a harness prompt.
-func gitRangeDiff(root, from, to string) string {
-	return gitPromptDiff(root, from, to)
-}
-
-// gitRangeStat is the diffstat between from and to.
-func gitRangeStat(root, from, to string) string {
-	if !gitAvailable(root) {
-		return ""
-	}
-	out, err := exec.Command("git", "-C", root, "diff", "--stat", from, to).Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func gitPromptDiff(root string, diffArgs ...string) string {
-	if !gitAvailable(root) {
-		return ""
-	}
-	base := append([]string{"-C", root, "diff", "--no-color"}, diffArgs...)
-	// Try fetching the diff excluding high-noise files (lockfiles, minified bundles)
-	cmdArgs := append(append(append([]string(nil), base...), "--", "."), lockfileExclusions...)
-	out, err := exec.Command("git", cmdArgs...).Output()
-	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
-		// Fallback to unfiltered diff if excluded diff was empty or failed (e.g. only lockfiles were modified)
-		out, err = exec.Command("git", base...).Output()
-		if err != nil {
-			return ""
-		}
-	}
-	if len(out) > maxStagedDiffBytes {
-		cut := maxStagedDiffBytes
-		if idx := bytes.LastIndexByte(out[:cut], '\n'); idx > 0 {
-			cut = idx
-		}
-		return string(out[:cut]) + "\n\n[Diff truncated: showing first 32KB. See changed files and summary above for full list of changes]"
-	}
-	return string(out)
-}
-
 // gitHasUncommittedChanges reports whether the working tree or index has any
 // changes at all (staged, unstaged, or untracked). Used to gate commit and
 // pull -- a pull is refused outright when there's anything uncommitted,
@@ -428,7 +321,7 @@ func gitFFOnlyPull(root, remote, ref string) error {
 
 // gitOpInProgress names the history-rewriting operation left half-done in
 // the repository -- "rebase" or "merge" -- or "" when there is none. A
-// conflicted rebase or merge (from a harness that gave up, or a terminal)
+// conflicted rebase or merge (say, from a terminal)
 // would otherwise just look like a dirty working tree.
 func gitOpInProgress(root string) string {
 	gd := gitDir(root)
@@ -569,43 +462,6 @@ func gitAheadBehind(root string) (ahead, behind int, hasUpstream bool) {
 // to the served root; git resolves it against -C root. Fails quiet -> "".
 func gitDiff(root, relpath string) string {
 	return gitDiffAgainst(root, relpath, "HEAD")
-}
-
-// gitDiffFull returns the whole unified diff for `git diff <refs...>`, capped at
-// max bytes (with a marker line when cut). Untracked files are not part of a git
-// diff; callers that care list them separately (gitUntracked).
-func gitDiffFull(root string, max int, refs ...string) string {
-	if !gitAvailable(root) {
-		return ""
-	}
-	args := append([]string{"-C", root, "diff", "--no-color", "--no-ext-diff"}, refs...)
-	out, err := exec.Command("git", args...).Output()
-	if err != nil {
-		return ""
-	}
-	if max > 0 && len(out) > max {
-		return string(out[:max]) + "\n… diff truncated; run git diff for the rest …\n"
-	}
-	return string(out)
-}
-
-// gitUntracked lists untracked, non-ignored files relative to the served root.
-func gitUntracked(root string) []string {
-	info := gitProbe(root)
-	if !info.ok {
-		return nil
-	}
-	out, err := exec.Command("git", "-C", root, "ls-files", "--others", "--exclude-standard", "-z").Output()
-	if err != nil {
-		return nil
-	}
-	var files []string
-	for _, p := range strings.Split(string(out), "\x00") {
-		if p != "" {
-			files = append(files, p)
-		}
-	}
-	return files
 }
 
 // gitFilesBetween maps each path that differs between two commits to its

@@ -26,7 +26,7 @@ Unlike heavy IDEs that display large intrusive modals on startup, lx8 loads tips
 
 ---
 
-## Keeping Tips Updated (Agent & Contributor Guidelines)
+## Keeping Tips Updated (Contributor Guidelines)
 
 > [!IMPORTANT]
 > Whenever rolling out a new user-facing feature, shortcut, command, or workflow improvement, add a corresponding tip entry so users can discover it.
@@ -39,7 +39,7 @@ Each tip is a JSON object with the following fields:
 {
   "id": "feature-slug",
   "title": "Clear and Concise Title",
-  "category": "Navigation | Git | AI | Editing | Viewer | Workbench | Performance",
+  "category": "Navigation | Git | Editing | Viewer | Workbench | Performance",
   "tag": "ShortTag",
   "content": "Short markdown description of the feature. Supports **bold**, `code`, links, and <kbd> tags.",
   "shortcut": "Mod+Key" // optional keyboard shortcut combo

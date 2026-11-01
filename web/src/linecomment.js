@@ -1,8 +1,8 @@
 // web/src/linecomment.js
-// Handles hovering on line numbers to show a thread icon, and clicking it to
+// Handles hovering on line numbers to show a line button, and clicking it to
 // open the same actions menu as a right click on a selection, aimed at that
-// line: start a thread, edit inline, copy a reference, and (in a PR review
-// session's diff view) add a review comment.
+// line: copy a reference or the source, and (in a PR review session's diff
+// view) add a review comment.
 import { S, doc_ } from './state.js';
 import { getReviewHandler, openLineMenu, getSelectedRangeInfo } from './selbar.js';
 
