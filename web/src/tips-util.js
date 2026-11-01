@@ -112,10 +112,10 @@ export const DEFAULT_TIPS = [
   },
   {
     id: "inline-pr-comments",
-    title: "Draft Comments & Batch Apply",
-    category: "AI",
+    title: "Draft Inline Review Comments",
+    category: "Git",
     tag: "PR Review",
-    content: "Click on any line in a diff to write inline review comments. Click **Batch Apply** in the PR bar to dispatch your coding harness to resolve all feedback in one pass."
+    content: "Click on any line in a diff to write inline review comments. Drafts collect in the PR comments panel until you submit the review."
   },
   {
     id: "unpushed-commits",
@@ -129,14 +129,7 @@ export const DEFAULT_TIPS = [
     title: "Stage, Commit, Push & Pull",
     category: "Git",
     tag: "Git",
-    content: "The Git panel lets you stage changes, write commit messages, push upstream, and pull updates. If branches diverge, your coding harness can automatically resolve the rebase."
-  },
-  {
-    id: "ai-commit-messages",
-    title: "Stage All & Commit with AI",
-    category: "AI",
-    tag: "Git",
-    content: "In the Git panel, click **Stage all + Commit with AI** to have your local AI coding harness inspect staged changes and generate conventional commit messages."
+    content: "The Git panel lets you stage changes, write commit messages, push upstream, and pull updates."
   },
   {
     id: "quick-file-edit",
@@ -187,10 +180,10 @@ export const DEFAULT_TIPS = [
   },
   {
     id: "copy-with-context",
-    title: "Copy Code with Context for LLMs",
+    title: "Copy Code with Context",
     category: "Selection",
-    tag: "AI",
-    content: "Select any lines of code and press **`Alt + A`** to copy the snippet annotated with file paths and line numbers, formatted for AI prompts. Press **`Alt + C`** to copy file and line refs.",
+    tag: "Editor",
+    content: "Select any lines of code and press **`Alt + A`** to copy the snippet annotated with its file path and line numbers. Press **`Alt + C`** to copy file and line refs.",
     shortcut: "Alt+A"
   },
   {
@@ -198,15 +191,7 @@ export const DEFAULT_TIPS = [
     title: "Selection Actions & Context Menu",
     category: "Selection",
     tag: "Editor",
-    content: "Right-click any selected text to reveal the action menu: copy formatted Markdown, copy reference, start an agent thread, or edit inline."
-  },
-  {
-    id: "agent-threads",
-    title: "Start an AI Agent Thread",
-    category: "AI",
-    tag: "Agent",
-    content: "Select code and press **`Alt + T`** to start a multi-turn conversation anchored to that code. Changes can be watched live or dispatched to Claude Code, Gemini CLI, Cursor Agent, Antigravity, or Codex.",
-    shortcut: "Alt+T"
+    content: "Right-click any selected text to reveal the action menu: copy formatted Markdown, copy a reference, copy with context, or find usages."
   },
   {
     id: "markdown-mermaid",
@@ -271,7 +256,7 @@ export const DEFAULT_TIPS = [
     title: "Zero-Setup Remote & Cloud Workspaces",
     category: "Terminal",
     tag: "Remote",
-    content: "Run `lx8 -host 0.0.0.0` on your remote VM, container, or server to review code locally over Tailscale, SSH port forward, or private LAN without remote agent daemons."
+    content: "Run `lx8 -host 0.0.0.0` on your remote VM, container, or server to review code locally over Tailscale, SSH port forward, or private LAN without any remote daemon."
   },
   {
     id: "virtual-rendering",

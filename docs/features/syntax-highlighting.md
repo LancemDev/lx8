@@ -6,7 +6,7 @@ lx8 delivers fast, accurate syntax highlighting across roughly 280 programming l
 
 ## Overview & Core Purpose
 
-Reading code is the predominant activity during code reviews, security audits, and agent pairing sessions. Inaccurate or plain-text rendering increases eye strain and makes understanding complex control flow significantly harder. At the same time, traditional client-side syntax highlighters often block the browser main thread or consume hundreds of megabytes of RAM when tokenizing large files.
+Reading code is the predominant activity during code reviews, and security audits. Inaccurate or plain-text rendering increases eye strain and makes understanding complex control flow significantly harder. At the same time, traditional client-side syntax highlighters often block the browser main thread or consume hundreds of megabytes of RAM when tokenizing large files.
 
 lx8 provides full native syntax highlighting for almost every language in modern use. By utilizing an intelligent viewport windowing strategy, lx8 only highlights lines as they scroll near the visible viewport. This enables instant rendering and silky smooth 60fps scrolling whether viewing a 50-line shell script or a 300,000-line generated database migration.
 

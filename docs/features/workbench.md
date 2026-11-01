@@ -82,4 +82,4 @@ What you opened, and which clone each repository's PRs use, is saved in `$XDG_ST
 
 ## Flags
 
-The workbench passes `-no-lsp`, `-no-git`, `-no-agent` and `-agent` on to every workspace it opens. `-host`, `-port`, `-base-path` and `-no-open` apply to the workbench itself. To open the current directory directly, as before, run `lx8 .`.
+The workbench passes `-no-lsp` and `-no-git` on to every workspace it opens. `-host`, `-port`, `-base-path` and `-no-open` apply to the workbench itself. To open the current directory directly, as before, run `lx8 .`.

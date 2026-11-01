@@ -3,17 +3,13 @@
 // about the branch's state. The forge's mergeability (/api/pr/merge-status)
 // drives one status pill and one split button: "Squash and merge" (or
 // whichever method was used last) when the PR can merge, "Resolve conflicts"
-// / "Update branch" when it is behind its base -- which hands off to the git
-// panel's agent rebase flow -- and "Force-push first" once that rebase sits
-// unpushed. The merge itself goes through a dialog that shows exactly what
-// lands on the base: method, commit title and message (rewritable by the
-// harness, with the user's commit instructions), and anything that makes
-// merging now a bad idea. Nothing here knows which forge it is talking to.
-import { $, S, esc, api, apiPostJson, keyLabel } from './state.js';
+// notes when it conflicts with or is behind its base, and "Force-push first"
+// once a local rebase sits unpushed. The merge itself goes through a dialog
+// that shows exactly what lands on the base: method, commit title and
+// message, and anything that makes merging now a bad idea. Nothing here knows which forge it is talking to.
+import { $, esc, api, apiPostJson, keyLabel } from './state.js';
 import { showToast } from './ui.js';
 import { on, emit } from './bus.js';
-import { registerAgentPicker } from './agent.js';
-import { openSettings } from './settings.js';
 
 const METHODS = {
   merge: {
@@ -36,7 +32,7 @@ const codeHtml = s => '<code>' + esc(s || '') + '</code>';
 
 let ctx = null;       // { meta: () => PR meta, onMerged: () => Promise }
 let info = null;      // last /api/pr/merge-status reply
-let sync = { running: false, inProgress: '', rewritten: false }; // from the git panel
+let sync = { inProgress: '', rewritten: false }; // from the git panel
 let unknownRetries = 0;
 let retryTimer = 0;
 let lastFetch = 0;
@@ -52,9 +48,6 @@ export function initPRMerge(c) {
     ctx.onChange();
   });
   $('#pr-merge-state')?.addEventListener('click', onPillClick);
-  $('#pr-rebase-ai')?.addEventListener('click', () => {
-    emit('pr:resolve');
-  });
   $('#pr-merge')?.addEventListener('click', onMergeClick);
   $('#pr-merge-caret')?.addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
   document.addEventListener('click', e => { if (!e.target.closest?.('#pr-merge-group')) toggleMenu(false); });
@@ -108,7 +101,6 @@ function rememberMethod(m) {
  * @returns {{all: string|null, approve: string|null, approveNote: string|null}}
  */
 export function reviewGate() {
-  if (sync.running) return { all: 'Wait for the rebase to finish', approve: null, approveNote: null };
   if (sync.inProgress) return { all: `Finish or abort the ${sync.inProgress} first`, approve: null, approveNote: null };
   if (sync.rewritten) {
     return { all: null, approve: 'Force-push the rebased branch first: approving now would approve the old commits', approveNote: null };
@@ -123,7 +115,6 @@ export function reviewGate() {
 // it can't. The checkout's local state overrides the forge's, since it is
 // what the forge will see next.
 function pill() {
-  if (sync.running) return { tone: 'busy', text: 'Rebasing...', title: 'The harness is bringing the branch up to date' };
   if (sync.inProgress) return { tone: 'warn', text: `${cap(sync.inProgress)} unfinished`, title: 'Open the git panel to finish or abort it', act: 'resolve' };
   if (sync.rewritten) return { tone: 'warn', text: 'Rebased, not pushed', title: 'Force-push to update the PR', act: 'push' };
   const st = info?.status;
@@ -132,8 +123,8 @@ function pill() {
   switch (st.state) {
     case 'clean': return { tone: 'ok', text: 'Ready to merge', title: 'No conflicts with ' + baseBranch() };
     case 'unstable': return { tone: 'warn', text: 'Checks failing', title: reason || 'Mergeable, but some checks are failing' };
-    case 'conflicts': return { tone: 'err', text: 'Conflicts with ' + baseBranch(), title: 'Resolve them with your coding harness', act: 'resolve' };
-    case 'behind': return { tone: 'warn', text: 'Behind ' + baseBranch(), title: 'Bring the branch up to date with your coding harness', act: 'resolve' };
+    case 'conflicts': return { tone: 'err', text: 'Conflicts with ' + baseBranch(), title: 'Show how to bring the branch up to date', act: 'resolve' };
+    case 'behind': return { tone: 'warn', text: 'Behind ' + baseBranch(), title: 'Show how to bring the branch up to date', act: 'resolve' };
     case 'blocked': return { tone: 'muted', text: 'Merge blocked', title: reason || 'Branch protection refuses the merge' };
     case 'draft': return { tone: 'muted', text: 'Draft', title: reason || 'This PR is still a draft' };
     case 'unknown': return { tone: 'busy', text: 'Checking mergeability...', title: 'The forge is still computing whether this PR can merge' };
@@ -153,7 +144,6 @@ function onPillClick() {
 
 // The split button's main half: always opens the merge dialog to review and merge.
 function mainAction() {
-  if (sync.running) return { label: 'Rebasing...', disabled: true, title: 'Wait for the rebase to finish' };
   const m = METHODS[chosenMethod()];
   return { label: m.button, title: `${m.label} into ${baseBranch()} (review the commit first)`, run: () => openDialog(chosenMethod()) };
 }
@@ -169,12 +159,6 @@ function renderPRMerge() {
       pillEl.title = p.title + (p.act ? '' : ' (click to refresh)');
     }
   }
-  const rebaseBtn = $('#pr-rebase-ai');
-  if (rebaseBtn) {
-    const showRebase = p?.act === 'resolve' && !sync.running;
-    rebaseBtn.hidden = !showRebase;
-    rebaseBtn.disabled = !!sync.running;
-  }
   const group = $('#pr-merge-group');
   if (!group) return;
   const st = state();
@@ -187,7 +171,6 @@ function renderPRMerge() {
   btn.title = a.title;
   btn.disabled = !!a.disabled;
   btn.dataset.tone = a.tone || '';
-  $('#pr-merge-caret').disabled = !!sync.running;
   renderMenu();
 }
 
@@ -230,7 +213,6 @@ function toggleMenu(force) {
 
 let method = 'squash';
 let drafts = {};      // method -> {title, message}, so switching methods keeps edits
-let aiJob = 0;
 
 const mergeModal = () => $('#pr-merge-modal');
 
@@ -240,31 +222,10 @@ function initDialog() {
   $('#pr-merge-close')?.addEventListener('click', closeDialog);
   $('#pr-merge-cancel')?.addEventListener('click', closeDialog);
   $('#pr-merge-confirm')?.addEventListener('click', confirmMerge);
-  $('#pr-merge-ai')?.addEventListener('click', rewriteWithAI);
-  $('#pr-merge-ai-checkbox')?.addEventListener('change', e => {
-    if (e.target.checked) {
-      $('#pr-merge-ai-row').hidden = false;
-      rewriteWithAI();
-    } else {
-      drafts[method] = { ...(info?.defaults?.[method] || { title: '', message: '' }) };
-      fillCommit();
-      if (method === 'squash') $('#pr-merge-ai-row').hidden = true;
-    }
-  });
   $('#pr-merge-reset')?.addEventListener('click', e => {
     e.preventDefault();
     drafts[method] = { ...(info?.defaults?.[method] || { title: '', message: '' }) };
     fillCommit();
-    const cb = $('#pr-merge-ai-checkbox');
-    if (cb) cb.checked = false;
-    if (method === 'squash') {
-      const row = $('#pr-merge-ai-row');
-      if (row) row.hidden = true;
-    }
-  });
-  $('#pr-merge-instructions-link')?.addEventListener('click', e => {
-    e.preventDefault();
-    openSettings('ui', 'Git & Diff', 'git.commitMessageInstruction');
   });
   m.addEventListener('click', e => { if (e.target === m) closeDialog(); });
   m.addEventListener('keydown', e => {
@@ -274,9 +235,6 @@ function initDialog() {
   for (const id of ['#pr-merge-commit-title', '#pr-merge-commit-body']) {
     $(id)?.addEventListener('input', saveDraft);
   }
-  const harnessSelect = $('#pr-merge-harness');
-  const modelSelect = $('#pr-merge-model');
-  if (harnessSelect && modelSelect) registerAgentPicker({ el: m, harnessSelect, modelSelect });
   $('#pr-merge-hint').textContent = keyLabel('Mod+Enter') + ' to merge, Esc to cancel';
 }
 
@@ -288,8 +246,6 @@ async function openDialog(m) {
   method = m;
   drafts = {};
   for (const k of Object.keys(info.defaults || {})) drafts[k] = { ...info.defaults[k] };
-  const cb = $('#pr-merge-ai-checkbox');
-  if (cb) cb.checked = false;
   setPRMergeErr('');
   renderDialog();
   mergeModal().hidden = false;
@@ -325,17 +281,6 @@ function renderDialog() {
   const commitBox = $('#pr-merge-commit');
   commitBox.hidden = method === 'rebase';
   fillCommit();
-  const instr = $('#pr-merge-instructions-note');
-  if (instr) instr.hidden = !info.hasInstruction;
-  const hasHarness = (S.meta?.agents || []).some(h => h.installed) || !!S.meta?.agent;
-  const isSquash = method === 'squash';
-  const cbWrap = $('#pr-merge-ai-checkbox-wrap');
-  if (cbWrap) cbWrap.hidden = !isSquash || !hasHarness;
-  if (isSquash) {
-    $('#pr-merge-ai-row').hidden = !hasHarness || !$('#pr-merge-ai-checkbox')?.checked;
-  } else {
-    $('#pr-merge-ai-row').hidden = !hasHarness;
-  }
 
   const list = $('#pr-merge-commit-list');
   list.hidden = method !== 'rebase';
@@ -350,7 +295,7 @@ function renderDialog() {
 function renderWarnings() {
   const w = [];
   let block = '';
-  if (sync.running || sync.inProgress) block = 'A rebase is in progress in this checkout. Finish or abort it first.';
+  if (sync.inProgress) block = 'A rebase is in progress in this checkout. Finish or abort it first.';
   else if (info.rewritten || sync.rewritten) block = 'This checkout was rebased but not pushed. Force-push it first, or the old commits are what merges.';
   else if (info.stale) block = 'The PR has commits this checkout has not seen. Pull and review them before merging.';
   else if (state() === 'conflicts') block = `This PR has conflicts with ${baseBranch()}. Resolve them first.`;
@@ -361,7 +306,7 @@ function renderWarnings() {
   }
   $('#pr-merge-warnings').innerHTML = w.join('');
   const confirm = $('#pr-merge-confirm');
-  confirm.disabled = !!block || !!aiJob;
+  confirm.disabled = !!block;
   confirm.title = block || '';
 }
 
@@ -408,79 +353,4 @@ async function confirmMerge() {
   closeDialog();
   showToast('✓', `${METHODS[method].done} into ${baseBranch()}`);
   await ctx.onMerged(); // re-reads the PR, and with it this status
-}
-
-// The harness rewrites the message in place from the PR's commits and diff,
-// the user's commit instructions from Settings, and the one-off instruction
-// typed here. It only fills the fields: nothing merges until Confirm.
-async function rewriteWithAI() {
-  if (aiJob || method === 'rebase') return;
-  saveDraft();
-  const btn = $('#pr-merge-ai');
-  const cb = $('#pr-merge-ai-checkbox');
-  const cbText = $('.pr-merge-checkbox-text');
-  if (cb && method === 'squash') cb.checked = true;
-  const d = drafts[method] || {};
-  setPRMergeErr('');
-  let job;
-  try {
-    job = await apiPostJson('/api/pr/merge-message', {
-      method, instruction: $('#pr-merge-ai-instruction').value.trim(), title: d.title || '', message: d.message || '',
-    });
-  } catch (e) {
-    setPRMergeErr(e.message || 'Could not start the harness');
-    if (cb && method === 'squash') cb.checked = false;
-    return;
-  }
-  aiJob = job.id;
-  const forMethod = method;
-  btn.disabled = true;
-  renderWarnings();
-  const reset = () => {
-    aiJob = 0;
-    btn.disabled = false;
-    btn.textContent = 'Rewrite with AI';
-    if (cbText) cbText.textContent = 'Rewrite commit message with AI';
-    if (!mergeModal().hidden) renderWarnings();
-  };
-  const poll = async () => {
-    let j;
-    try {
-      j = await api('/api/agent/job?id=' + job.id);
-    } catch (e) {
-      j = { running: false, error: e.message };
-    }
-    if (j.running) {
-      const statusText = `Rewriting... (${Math.round((j.ms || 0) / 1000)}s)`;
-      btn.textContent = statusText;
-      if (cbText && method === 'squash') cbText.textContent = statusText;
-      setTimeout(poll, 700);
-      return;
-    }
-    reset();
-    if (j.error) {
-      setPRMergeErr((j.harness || 'harness') + ': ' + j.error);
-      if (cb && forMethod === 'squash') cb.checked = false;
-      return;
-    }
-    const msg = splitMessage(j.stdout || j.log || '');
-    if (!msg.title) {
-      setPRMergeErr('The harness returned an empty message.');
-      if (cb && forMethod === 'squash') cb.checked = false;
-      return;
-    }
-    drafts[forMethod] = msg;
-    if (method === forMethod) fillCommit();
-    if (cb && forMethod === 'squash') cb.checked = true;
-  };
-  setTimeout(poll, 400);
-}
-
-// First line is the commit title; the rest, past the blank line, its body.
-function splitMessage(text) {
-  let t = text.trim();
-  const fence = t.match(/^```[a-z]*\n([\s\S]*?)\n```$/);
-  if (fence) t = fence[1].trim();
-  const [title, ...rest] = t.split('\n');
-  return { title: (title || '').trim(), message: rest.join('\n').trim() };
 }

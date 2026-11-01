@@ -20,27 +20,16 @@ const mdviewEl = $('#mdview');
 // e.code, not e.key: Option+letter types a symbol on macOS.
 export const SEL_KEYS = {
   KeyC: 'copy-ref',
-  KeyA: 'copy-agent',
+  KeyA: 'copy-context',
   KeyU: 'usages',
-  KeyE: 'agent-edit',
   KeyR: 'review-comment',
-  KeyT: 'thread',
   KeyM: 'copy-markdown',
   KeyS: 'copy-source',
 };
 
-/* Editing lives in agent.js, which registers itself here on load. Keeping the
-   dependency one-way means selbar imports nothing back and the two never form
-   a cycle; the button simply does nothing when no harness is configured. */
-let agentHandler = null;
-export function setAgentHandler(fn) { agentHandler = fn; }
-
-/* Threads (thread.js) hook in the same way. */
-let threadHandler = null;
-export function setThreadHandler(fn) { threadHandler = fn; }
-
-/* Same one-way registration for PR review comments (pr.js), active only in a
-   `lx8 pr ...` session. */
+/* PR review comments (pr.js) register here on load, active only in a
+   `lx8 pr ...` session. Keeping the dependency one-way means selbar imports
+   nothing back and the two never form a cycle. */
 let reviewHandler = null;
 export function setReviewHandler(fn) { reviewHandler = fn; }
 // Read-only accessor so the diff gutter's pencil (linecomment.js) can offer
@@ -311,26 +300,7 @@ export function copySelectAll() {
    bar is not showing, so a shortcut can fall through to the browser. */
 export function runSelectionAction(act, triggerBtn = null, override = null) {
   const target = override || current;
-  if (!target) {
-    if (act === 'thread') {
-      const d = doc_();
-      if (d && threadHandler) {
-        const line = d.cur || 1;
-        threadHandler({ text: (d.lines && d.lines[line - 1]) || '', l1: line, l2: line, path: d.path });
-        return true;
-      }
-    }
-    if (act === 'agent-edit') {
-      const d = doc_();
-      if (d && agentHandler) {
-        const line = d.cur || 1;
-        const text = (d.lines && d.lines[line - 1]) || '';
-        agentHandler({ text, l1: line, l2: line, path: d.path });
-        return true;
-      }
-    }
-    return false;
-  }
+  if (!target) return false;
   const { text, path } = target;
   const ref = selectionRef(target);
   const targetBtn = triggerBtn || $('#footer-sel [data-sel="' + act + '"]');
@@ -360,17 +330,11 @@ export function runSelectionAction(act, triggerBtn = null, override = null) {
     }
   } else if (act === 'copy-ref') {
     copyToClipboard(ref, 'Copied', targetBtn);
-  } else if (act === 'copy-agent') {
+  } else if (act === 'copy-context') {
     const ext = path.split('.').pop() || '';
     const lineStr = target.l1 === target.l2 ? 'line ' + target.l1 : 'lines ' + target.l1 + '-' + target.l2;
     const snippet = '@' + path + ' ' + lineStr + '\n```' + ext + '\n' + text + '\n```';
     copyToClipboard(snippet, 'Copied', targetBtn);
-  } else if (act === 'agent-edit') {
-    if (!agentHandler) return false;
-    agentHandler(target);
-  } else if (act === 'thread') {
-    if (!threadHandler) return false;
-    threadHandler(target);
   } else if (act === 'review-comment') {
     if (!reviewHandler) return false;
     reviewHandler(target);
@@ -391,7 +355,7 @@ export function closeSelMenu() {
   if (menu && !menu.hidden) menu.hidden = true;
 }
 
-/* The gutter's thread button: the same actions as the right-click menu, aimed
+/* The gutter's line button: the same actions as the right-click menu, aimed
    at one line. Find Usages needs a symbol, which a whole line is not, and
    Add Review Comment only makes sense on a line GitHub knows about. */
 export function openLineMenu(info, x, y) {
@@ -403,13 +367,11 @@ export function openLineMenu(info, x, y) {
 // Exported so pr.js can append "Add Review Comment" in a PR review session
 // without selbar needing to know PR review exists.
 export const SEL_MENU_ITEMS = [
-  { sel: 'thread', label: 'Start Agent Thread', keys: 'Alt+T' },
-  { sel: 'agent-edit', label: 'Edit Inline', keys: 'Alt+E' },
   { sel: 'copy-source', label: 'Copy Source', keys: 'Mod+C', forCode: true },
   { sel: 'copy-preview-text', label: 'Copy Formatted Text', keys: 'Mod+C', forPreview: true },
   { sel: 'copy-markdown', label: 'Copy Raw Markdown', keys: 'Alt+M', forPreview: true },
   { sel: 'copy-ref', label: 'Copy Ref', keys: 'Alt+C' },
-  { sel: 'copy-agent', label: 'Copy with Context', keys: 'Alt+A' },
+  { sel: 'copy-context', label: 'Copy with Context', keys: 'Alt+A' },
   { sel: 'usages', label: 'Find Usages', keys: 'Alt+U', forCode: true },
 ];
 

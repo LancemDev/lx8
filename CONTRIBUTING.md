@@ -6,7 +6,7 @@ Thank you for your interest in improving lx8.
 
 lx8 is built and maintained entirely using AI coding agents.
 
-Because all implementation, architecture refactoring, and code changes are written by AI agents guided by our core design principles (zero config, zero runtime dependencies, lean memory footprint, single binary, reads-first focus with edits delegated to coding agents), we generally do not accept unsolicited pull requests containing manual or disparate code patches.
+Because all implementation, architecture refactoring, and code changes are written by AI agents guided by our core design principles (zero config, zero runtime dependencies, lean memory footprint, single binary, reads-first focus), we generally do not accept unsolicited pull requests containing manual or disparate code patches.
 
 Instead, the most valuable contribution you can provide is a clear, detailed bug report or a well-reasoned feature idea.
 

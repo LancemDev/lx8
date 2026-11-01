@@ -10,7 +10,6 @@ import { $, S, doc_, esc, api, apiPostJson, keyLabel, withKeys } from './state.j
 import { showToast } from './ui.js';
 import { setReviewHandler, SEL_MENU_ITEMS } from './selbar.js';
 import { diffview, setPRSyncHandler } from './diff.js';
-import { reloadWorkspace } from './agent.js';
 import { openFile } from './tabs.js';
 import { refreshTree } from './tree.js';
 import { layout, render } from './renderer.js';
@@ -134,11 +133,6 @@ function renderBar() {
     dw.hidden = !meta.diffBaseWarning;
     if (meta.diffBaseWarning) dw.title = meta.diffBaseWarning;
   }
-  const batchBtn = $('#pr-batch-apply');
-  if (batchBtn) {
-    const hasApplicable = comments.some(c => c.path && c.line && c.body?.trim());
-    batchBtn.hidden = !hasApplicable;
-  }
   // The verdict follows the branch: while the checkout is mid-rebase, or
   // rebased but not pushed, the forge still holds the old commits, so a
   // verdict now would land on code that is about to be replaced.
@@ -179,7 +173,6 @@ export function nudgeForgeToken(reason = '') {
 }
 
 function wireBarButtons() {
-  $('#pr-batch-apply')?.addEventListener('click', batchApplyComments);
   $('#pr-submit-comment')?.addEventListener('click', () => submitReview('COMMENT'));
   $('#pr-submit-request-changes')?.addEventListener('click', () => submitReview('REQUEST_CHANGES'));
   $('#pr-submit-approve')?.addEventListener('click', () => submitReview('APPROVE'));
@@ -210,77 +203,6 @@ async function sendNewIssueComment() {
   } finally {
     if (btn) btn.disabled = false;
   }
-}
-
-// Only the label swaps text; the icon markup (SVG + .footer-btn-label span,
-// see index.html) stays put so the button never reverts to a plain-text look.
-function setBatchBtnLabel(btn, text) {
-  const label = btn?.querySelector('.footer-btn-label');
-  if (label) label.textContent = text; else if (btn) btn.textContent = text;
-}
-
-async function batchApplyComments() {
-  const applicable = comments.filter(c => c.path && c.line && c.body?.trim());
-  if (!applicable.length) {
-    showToast('!', 'No draft comments with line locations to apply');
-    return;
-  }
-  const btn = $('#pr-batch-apply');
-  if (btn) {
-    btn.disabled = true;
-    setBatchBtnLabel(btn, 'Applying...');
-  }
-  const edits = applicable.map(c => ({
-    path: c.path,
-    l1: c.line,
-    l2: c.line,
-    instruction: c.body.trim(),
-  }));
-  try {
-    const job = await apiPostJson('/api/agent/batch', { edits });
-    showToast('AI', `Batch applying ${edits.length} comments with ${job.harness || 'agent'}...`);
-    pollPRBatch(job.id, applicable.length);
-  } catch (e) {
-    if (btn) {
-      btn.disabled = false;
-      setBatchBtnLabel(btn, 'Batch Apply');
-    }
-    showToast('!', e.message || 'Could not dispatch batch edit');
-  }
-}
-
-async function pollPRBatch(id, count) {
-  const btn = $('#pr-batch-apply');
-  const poll = async () => {
-    try {
-      const j = await api('/api/agent/job?id=' + id);
-      if (j.running) {
-        const sec = Math.round((j.ms || 0) / 1000);
-        if (btn) setBatchBtnLabel(btn, `Applying... (${sec}s)`);
-        setTimeout(poll, 600);
-        return;
-      }
-      if (btn) {
-        btn.disabled = false;
-        setBatchBtnLabel(btn, 'Batch Apply');
-      }
-      if (j.error) {
-        showToast('!', `Agent error: ${j.error}`);
-        if (j.changed?.length) await reloadWorkspace(null);
-        return;
-      }
-      showToast('✓', `Batch applied ${count} comments!`);
-      await reloadWorkspace(null);
-      await refreshComments();
-    } catch (e) {
-      if (btn) {
-        btn.disabled = false;
-        setBatchBtnLabel(btn, 'Batch Apply');
-      }
-      showToast('!', e.message || 'Batch failed');
-    }
-  };
-  setTimeout(poll, 400);
 }
 
 async function submitReview(event) {
@@ -412,7 +334,7 @@ export function openCommentComposer(info) {
   if (!meta) return;
   const id = 'prc' + (++seq);
   const box = document.createElement('div');
-  box.className = 'agent-box entering';
+  box.className = 'cmt-box entering';
   box.dataset.id = id;
   const side = info.side || 'RIGHT';
   const line = side === 'LEFT' ? (info.delL1 || info.l1) : info.l1;
@@ -420,14 +342,14 @@ export function openCommentComposer(info) {
   const ref = info.path + ':' + (line === lineEnd ? line : line + '-' + lineEnd) + (side === 'LEFT' ? ' (base)' : '');
   const modEnter = keyLabel('Mod+Enter');
   box.innerHTML =
-    '<div class="agent-head"><span class="sel-chip">Review Comment</span>' +
-    '<span class="agent-ref" role="button" tabindex="0" title="Jump to this line">' + esc(ref) + '</span>' +
-    '<span class="grow"></span><button class="agent-close" title="Close (Esc)">✕</button></div>' +
-    '<div class="agent-compose">' +
-    '<textarea class="agent-input" rows="3" spellcheck="false" autocomplete="off" placeholder="Leave a comment on this line... (' + esc(modEnter) + ' to add)"></textarea>' +
-    '<div class="agent-err" hidden></div>' +
-    '<div class="agent-foot"><span class="agent-hint">' + esc(modEnter) + ' to add, Esc to cancel</span>' +
-    '<button class="agent-send" title="Add comment (' + esc(modEnter) + ')">Add Comment</button></div></div>';
+    '<div class="cmt-head"><span class="sel-chip">Review Comment</span>' +
+    '<span class="cmt-ref" role="button" tabindex="0" title="Jump to this line">' + esc(ref) + '</span>' +
+    '<span class="grow"></span><button class="cmt-close" title="Close (Esc)">✕</button></div>' +
+    '<div class="cmt-compose">' +
+    '<textarea class="cmt-input" rows="3" spellcheck="false" autocomplete="off" placeholder="Leave a comment on this line... (' + esc(modEnter) + ' to add)"></textarea>' +
+    '<div class="cmt-err" hidden></div>' +
+    '<div class="cmt-foot"><span class="cmt-hint">' + esc(modEnter) + ' to add, Esc to cancel</span>' +
+    '<button class="cmt-send" title="Add comment (' + esc(modEnter) + ')">Add Comment</button></div></div>';
 
   const entry = { box, path: info.path, side, line };
   openBoxes.set(id, entry);
@@ -438,23 +360,23 @@ export function openCommentComposer(info) {
   positionBox(entry);
   const target = findDiffRowEl(info.path, side, line);
   if (target) { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); flashDiffRow(target); }
-  const ta = /** @type {HTMLTextAreaElement|null} */ (box.querySelector('.agent-input'));
+  const ta = /** @type {HTMLTextAreaElement|null} */ (box.querySelector('.cmt-input'));
   if (ta) ta.focus();
 
-  box.querySelector('.agent-ref')?.addEventListener('click', () => revealComposer(entry));
+  box.querySelector('.cmt-ref')?.addEventListener('click', () => revealComposer(entry));
 
   const close = () => {
     openBoxes.delete(id);
     box.remove();
     if (!list().children.length) list().hidden = true;
   };
-  box.querySelector('.agent-close')?.addEventListener('click', close);
+  box.querySelector('.cmt-close')?.addEventListener('click', close);
 
   const send = async () => {
     if (!ta) return;
     const body = ta.value.trim();
     if (!body) return;
-    const errEl = /** @type {HTMLElement|null} */ (box.querySelector('.agent-err'));
+    const errEl = /** @type {HTMLElement|null} */ (box.querySelector('.cmt-err'));
     if (errEl) errEl.hidden = true;
     try {
       const c = await apiPostJson('/api/pr/comments', { path: info.path, line, side, body });
@@ -471,7 +393,7 @@ export function openCommentComposer(info) {
       }
     }
   };
-  box.querySelector('.agent-send')?.addEventListener('click', send);
+  box.querySelector('.cmt-send')?.addEventListener('click', send);
   ta?.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
     if (e.key === 'Escape') { e.preventDefault(); close(); }
     else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }

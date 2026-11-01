@@ -158,9 +158,6 @@ lx8 is a lightweight code editor and navigator, not only an env editor.
   from the tree's context menu.
 - **Git and diffs** -- live status, split and unified diffs, stage, commit,
   push and pull from the sidebar's Changes view.
-- **Agent threads** -- anchor a conversation to a code range (`Alt+T`) and
-  dispatch it to Claude Code, Cursor Agent, OpenCode, Codex or the harness
-  you already use.
 - **Rich viewer** -- 14 themes, rendered Markdown with Mermaid, CSV/TSV as a
   table, an image inspector, and optional zero-config LSP.
 - **Remote-first** -- run it on a server, a VM or a container and read the
@@ -187,7 +184,6 @@ Full feature guide: [docs/features/README.md](docs/features/README.md).
 | `Cmd/Ctrl+B` | Toggle the sidebar |
 | `Cmd/Ctrl+J` | Toggle the inspector |
 | `F12` / `Shift+F12` | Definition / references |
-| `Alt+T` | Start a thread on the selection |
 
 The full list is in the help sheet, behind the `?` in the status bar.
 

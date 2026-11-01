@@ -6,7 +6,6 @@ It works the same on **GitHub**, **GitLab** (gitlab.com and self-hosted), **Gite
 
 **What you need**
 - `git` installed.
-- For conflict resolution, AI commit messages and batch-applying comments: a coding harness lx8 supports (Claude Code, Gemini CLI, Cursor Agent, Codex, and others; see [Editing with Coding Agents](agent-editing.md)). Everything else works without one.
 
 ---
 
@@ -94,22 +93,21 @@ Tokens are saved in your lx8 settings file (`~/.lx8/settings.json`, or `$XDG_CON
 
 The checkout is a real git worktree with the full git panel:
 
-- Edit a file (`Cmd/Ctrl+E`), or ask your coding harness to (`Alt+E` on a selection).
-- **⚡ Batch Apply** turns all your draft comments into code changes in one go.
-- Stage, then **Commit with AI** or write your own message, then **Push**. The push goes to the PR's own branch, even when it comes from a fork.
+- Edit a file (`Cmd/Ctrl+E`).
+- Stage, write a commit message, then **Push**. The push goes to the PR's own branch, even when it comes from a fork.
 - If someone pushes to the PR while you review, **Pull** brings their commits in.
 
 ---
 
 ## 5. Bring the PR up to date with its base
 
-When the base branch has moved on, the status pill in the PR bar shows **Conflicts with main** or **Behind main**, and the merge button becomes **Resolve conflicts** or **Update branch**. Click it:
+When the base branch has moved on, the status pill in the PR bar shows **Conflicts with main** or **Behind main**. Click it:
 
-1. lx8 fetches the base branch and asks, in the git panel: **Rebase with AI** or **Merge with AI**? Pick the harness and model there.
-2. The harness resolves any conflicts and finishes. It never pushes.
-3. Review what it did, then push. A merge is a normal **Push to PR**. A rebase rewrites the PR's commits, so it needs a **Force-push**, which lx8 confirms first. The force-push is refused if anyone else pushed in the meantime, so their work is never lost.
+1. lx8 fetches the base branch and reports, in the git panel, how far behind the PR is.
+2. Rebase onto (or merge) the base in a terminal inside the checkout, resolving any conflicts there. A rebase or merge left half-done can be aborted from the git panel.
+3. Then push. A merge is a normal **Push**. A rebase rewrites the PR's commits, so it needs a **Force-push**, which lx8 confirms first. The force-push is refused if anyone else pushed in the meantime, so their work is never lost.
 
-While the rebase runs, or sits unpushed, **Approve** and **Merge** wait. Otherwise they would act on the PR's old commits.
+While a rebase is in progress, or sits unpushed, **Approve** and **Merge** wait. Otherwise they would act on the PR's old commits.
 
 ---
 
@@ -118,7 +116,7 @@ While the rebase runs, or sits unpushed, **Approve** and **Merge** wait. Otherwi
 When the pill says **Ready to merge**, use the split button next to Approve:
 
 1. Pick the method from the caret: **Create a merge commit**, **Squash and merge**, or **Rebase and merge**. Only the methods your repository allows are listed, and lx8 remembers your choice.
-2. In the dialog, edit the commit title and message. **Rewrite with AI** drafts them from the PR's commits and diff, following your Commit Message Instructions (Settings → Git & Diff) and anything you type next to the button.
+2. In the dialog, edit the commit title and message (prefilled with the forge's defaults).
 3. **Confirm**. lx8 merges exactly the commit you reviewed. If the PR changed since, the merge is refused and lx8 asks you to pull first.
 
 ---
@@ -135,9 +133,8 @@ When the pill says **Ready to merge**, use the split button next to Approve:
 | *Merge blocked* | Branch protection: required approvals, checks, or resolved threads. | Hover the pill for the reason, and meet the requirement on the forge. |
 | The merge is refused although the pill said ready | On Gitea and Bitbucket, protection rules only show up when merging. | The error names the rule. |
 | *The PR has new commits since this checkout* | Someone pushed after you loaded the PR. | **Pull**, review the new commits, then merge. |
-| *someone else pushed … since this checkout* on force-push | The lease protected their commits; your rebase exists only in this checkout. | Reopen the PR (`lx8 <url>`) to pick up their commits, then **Resolve conflicts** again. |
+| *someone else pushed … since this checkout* on force-push | The lease protected their commits; your rebase exists only in this checkout. | Reopen the PR (`lx8 <url>`) to pick up their commits, then rebase again. |
 | *diff base unresolved* badge, empty diff | lx8 couldn't fetch the base branch. | Check that the token can read the repository, then **Pull** to retry. |
-| **Rebase with AI** / **Rewrite with AI** missing | No coding harness is installed. | Install one (see [Editing with Coding Agents](agent-editing.md)). |
 
 ---
 

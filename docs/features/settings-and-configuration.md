@@ -1,6 +1,6 @@
 # Settings & Configuration System
 
-lx8 includes a built-in visual Settings manager modeled after VS Code. Accessible via `Cmd/Ctrl+,` or the gear icon in the status bar, it enables complete customization of editor ergonomics, typography, themes, diff views, and coding agents with live real-time synchronization.
+lx8 includes a built-in visual Settings manager modeled after VS Code. Accessible via `Cmd/Ctrl+,` or the gear icon in the status bar, it enables complete customization of editor ergonomics, typography, themes, and diff views with live real-time synchronization.
 
 ---
 
@@ -47,7 +47,6 @@ lx8 stores all configuration in a single per-user global file (`~/.lx8/settings.
 | `diffEditor.renderSideBySide` | Diff Editor | `true` | `true`, `false` | Split vs. unified diff view default |
 | `diffEditor.ignoreTrimWhitespace` | Diff Editor | `true` | `true`, `false` | Ignore whitespace differences in diffs |
 | `git.gutterIndicators` | Git | `true` | `true`, `false` | Visual change markers in gutter |
-| `git.commitMessageInstruction` | Git & Diff | `""` | any string (multi-line textarea) | Extra instructions given to the coding harness when the git panel's **Commit with AI** writes a commit message |
 | `explorer.compactFolders` | Explorer | `true` | `true`, `false` | Compact single-child directory chains |
 | `explorer.autoReveal` | Explorer | `true` | `true`, `false` | Auto-scroll to active file in tree |
 | `files.exclude` | Files | Default globs | Array of glob patterns | Exclude patterns from trees and searches |
@@ -55,8 +54,6 @@ lx8 stores all configuration in a single per-user global file (`~/.lx8/settings.
 | `search.maxResults` | Search | `1000` | `50` – `10,000` | Maximum search results returned |
 | `lsp.enabled` | LSP | `true` | `true`, `false` | Master toggle for Language Servers |
 | `lsp.hover.enabled` | LSP | `true` | `true`, `false` | Hover documentation cards |
-| `agent.harness` | Coding Agent | `""` | `claude`, `gemini`, `agy`, etc. | Preferred CLI coding harness |
-| `agent.timeoutSeconds` | Coding Agent | `120` | `10` – `600` (seconds) | Max runtime for agent edits |
 | `github.token` | GitHub | `""` | any string | Personal access token for GitHub pull request review; takes precedence over `GITHUB_TOKEN` and `gh auth token`. Masked in the Settings UI. |
 | `gitlab.token` | GitLab | `""` | any string | Personal access token (`api` scope) for GitLab merge request review. Sent only to `gitlab.host`; takes precedence over `GITLAB_TOKEN`. Masked in the Settings UI. |
 | `gitlab.host` | GitLab | `""` | host name | The instance `gitlab.token` belongs to. Falls back to `GITLAB_HOST`, then `gitlab.com`. Set automatically when you connect through the Connect dialog. |
@@ -88,9 +85,7 @@ For automated machine setup, dotfile repositories, or scripting, you can directl
   "editor.fontFamily": "\"JetBrains Mono\", monospace",
   "editor.lineHeight": 22,
   "workbench.colorTheme": "tokyo-night",
-  "diffEditor.renderSideBySide": true,
-  "agent.harness": "claude",
-  "agent.timeoutSeconds": 180
+  "diffEditor.renderSideBySide": true
 }
 ```
 

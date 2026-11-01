@@ -29,7 +29,7 @@ The symbol outline extracts every structural symbol from the current document in
 ## Developer Workflows & Practical Value
 
 ### Understanding New Files Quickly
-When reviewing a file created or modified by an AI coding agent, opening the symbol outline gives you an instant architectural summary of all newly defined methods, data structures, and exported types before diving into implementation details.
+When reviewing a file created or modified by someone else, opening the symbol outline gives you an instant architectural summary of all newly defined methods, data structures, and exported types before diving into implementation details.
 
 ### Rapid In-File Navigation
 Instead of scrolling up and down through a 2,000-line source file, pressing `Cmd/Ctrl+Shift+O` and typing `Init` or `Handle` immediately takes you to the initialization routine or HTTP handler.
