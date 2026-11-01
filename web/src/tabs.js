@@ -111,14 +111,21 @@ export async function openFile(path, opts = {}) {
     let initialDismissed = false;
 
     if (hasDiff) {
-      // A .env file opens in the .env editor, not its diff, unless the diff
-      // was asked for; the Diff switch is still there.
-      if ((wantsSource || (isEnvPath(path) && !wantsDiff)) && !j.deleted) {
+      // Editor-first: a changed file in a normal project opens as source (and
+      // then in the editor), not as a diff. PR review is the exception -- the
+      // diff is the reason for the session. A .env file opens in the .env
+      // editor, not its diff, unless the diff was asked for; the Diff switch
+      // is still there in every case.
+      const inPR = !!S.meta?.pr;
+      const preferSource = wantsSource ||
+        (isEnvPath(path) && !wantsDiff) ||
+        (!inPR && !wantsDiff);
+      if (preferSource && !j.deleted) {
         initialDiffMode = null;
         initialDismissed = true;
         initialOpenedInDiff = false;
       } else {
-        // Any file with a diff opens in diff mode unless source was asked for.
+        // A deleted file has no source to show, so it falls back to its diff.
         initialDiffMode = layoutPref() || 'split';
         initialDismissed = false;
         initialOpenedInDiff = true;
@@ -342,6 +349,8 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
       isEditing: !!keep.isEditing,
       dirty: !!keep.dirty,
       editContent: keep.editContent,
+      editAutoTried: !!keep.editAutoTried,
+      editPending: false,
     };
 
     for (let k = 0; k < j.lines.length; k++) {
@@ -362,11 +371,25 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
       continue;
     }
 
+    /* An open text editor holds its doc object, and reloading after each
+       autosave must not swap the textarea out from under the caret. Update
+       the metadata in place instead. */
+    if (keep.isEditing) {
+      Object.assign(keep, d);
+      if (j.refine) refineChunk(keep, tgt.start / CHUNK);
+      continue;
+    }
+
     S.tabs[idx] = d;
     if (j.refine) refineChunk(d, tgt.start / CHUNK);
   }
 
   if (onlyIfChanged && !anyChanged) return;
+
+  // An autosave reloads the active tab after every write. It must not fire the
+  // tab-activation handlers: they clear find and selections, which would close
+  // the find bar under the reader's cursor while the file is being edited.
+  const activeIsEditing = !!doc_()?.isEditing;
 
   // Load all gutters concurrently before initial paint
   await Promise.allSettled(S.tabs.filter(t => !t.isImage).map(t => loadGutter(t)));
@@ -389,7 +412,7 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
   drawTabs();
   drawCrumbs();
   updateStatus();
-  if (d) emit('tab:activated', { doc: d });
+  if (d && !activeIsEditing) emit('tab:activated', { doc: d });
 }
 
 export function centerLine(n) {
@@ -418,10 +441,31 @@ export function closeTab(i) {
   closeTabs([i]);
 }
 
-function closeTabs(indices) {
+/* Renaming or deleting a path affects the file itself and, for a directory,
+   every tab below it. Confirm once before the filesystem call so a cancelled
+   prompt leaves the disk untouched, then close without asking a second time. */
+function openTabsUnderPath(path, isDir) {
+  return S.tabs
+    .map((tab, i) => ({ tab, i }))
+    .filter(({ tab }) => tab.path === path || (isDir && tab.path.startsWith(path + '/')));
+}
+
+export function confirmDiscardTabsUnderPath(path, isDir = false) {
+  const dirty = openTabsUnderPath(path, isDir).map(x => x.tab).filter(tab => tab.dirty);
+  if (!dirty.length) return true;
+  const names = dirty.map(tab => tab.name).join(', ');
+  return confirm(`You have unsaved changes in ${names}. Continue and discard changes?`);
+}
+
+export function closeTabsUnderPath(path, isDir = false) {
+  const indices = openTabsUnderPath(path, isDir).map(x => x.i);
+  if (indices.length) closeTabs(indices, true);
+}
+
+function closeTabs(indices, skipDirtyCheck = false) {
   if (!indices.length) return;
   const dirtyTabs = indices.map(i => S.tabs[i]).filter(t => t?.dirty);
-  if (dirtyTabs.length > 0) {
+  if (dirtyTabs.length > 0 && !skipDirtyCheck) {
     const names = dirtyTabs.map(t => t.name).join(', ');
     if (!confirm(`You have unsaved changes in ${names}. Close anyway and discard changes?`)) {
       return;

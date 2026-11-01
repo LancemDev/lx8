@@ -1,8 +1,8 @@
 // web/src/newitem.js
-import { $, apiPostJson } from './state.js';
+import { $, apiPostJson, S } from './state.js';
 import { showToast } from './ui.js';
-import { openFile } from './tabs.js';
-import { enterEditMode } from './editview.js';
+import { openFile, confirmDiscardTabsUnderPath, closeTabsUnderPath } from './tabs.js';
+import { enterEditMode, suspendAutosaveForPath, resumeAutosaveForPath } from './editview.js';
 import { triggerRefresh } from './gitstream.js';
 import { drawTree, revealDir, treeEl } from './tree.js';
 import { emit } from './bus.js';
@@ -16,6 +16,8 @@ export function promptNewItem(type, targetDir = '') {
 
   const currentType = type === 'dir' ? 'dir' : type === 'env' ? 'env' : 'file';
   modal.dataset.type = currentType;
+  delete modal.dataset.oldPath;
+  delete modal.dataset.isDir;
   const baseDir = targetDir ? targetDir.replace(/^\/+|\/+$/g, '') : '';
   const prefix = baseDir ? baseDir + '/' : '';
 
@@ -25,10 +27,37 @@ export function promptNewItem(type, targetDir = '') {
     : prefix
       ? `Create inside ${prefix} (or specify path):`
       : 'Enter relative path from project root:';
+  const modalOk = $('#modal-btn-ok');
+  if (modalOk) modalOk.textContent = 'Create';
   modalInput.value = currentType === 'env' ? '.env' : prefix;
   modal.hidden = false;
   modalInput.focus();
   modalInput.setSelectionRange(modalInput.value.length, modalInput.value.length);
+}
+
+/* Rename starts with just the item's name selected, keeping its folder in
+   place. Typing a path with a slash still moves it somewhere else. */
+export function promptRename(path, isDir = false) {
+  const modal = $('#input-modal');
+  const modalTitle = $('#modal-title');
+  const modalDesc = $('#modal-desc');
+  const modalInput = $('#modal-input');
+  if (!modal || !modalTitle || !modalDesc || !modalInput) return;
+
+  const name = path.split('/').pop() || path;
+  modal.dataset.type = 'rename';
+  modal.dataset.oldPath = path;
+  modal.dataset.isDir = isDir ? '1' : '';
+  modalTitle.textContent = isDir ? 'Rename Folder' : 'Rename File';
+  modalDesc.textContent = `Rename ${path} to:`;
+  const modalOk = $('#modal-btn-ok');
+  if (modalOk) modalOk.textContent = 'Rename';
+  modalInput.value = name;
+  modal.hidden = false;
+  modalInput.focus();
+  const dot = name.lastIndexOf('.');
+  const selectTo = !isDir && dot > 0 ? dot : name.length;
+  modalInput.setSelectionRange(0, selectTo);
 }
 
 export function closeNewItemModal() {
@@ -53,6 +82,40 @@ async function submitNewItem() {
 
   if (btnOk) btnOk.disabled = true;
   try {
+    if (currentType === 'rename') {
+      const oldPath = modal.dataset.oldPath || '';
+      const isDir = modal.dataset.isDir === '1';
+      if (!oldPath) return;
+      let newPath = val;
+      if (!val.includes('/')) {
+        const slash = oldPath.lastIndexOf('/');
+        newPath = (slash >= 0 ? oldPath.slice(0, slash + 1) : '') + val;
+      }
+      if (newPath === oldPath) {
+        closeNewItemModal();
+        return;
+      }
+      if (!confirmDiscardTabsUnderPath(oldPath, isDir)) return;
+      const wasOpen = S.tabs.some(t => t.path === oldPath);
+      await suspendAutosaveForPath(oldPath, isDir);
+      let res;
+      try {
+        res = await apiPostJson('/api/fs/rename', { path: oldPath, newPath });
+      } catch (err) {
+        resumeAutosaveForPath(oldPath, isDir);
+        throw err;
+      }
+      closeNewItemModal();
+      closeTabsUnderPath(oldPath, isDir);
+      showToast('✓', 'Renamed to ' + res.newPath);
+      const renamedDir = res.newPath.includes('/') ? res.newPath.slice(0, res.newPath.lastIndexOf('/')) : '';
+      await drawTree('', treeEl, 0);
+      if (renamedDir) await revealDir(renamedDir);
+      triggerRefresh();
+      if (!isDir && wasOpen) await openFile(res.newPath);
+      return;
+    }
+
     if (currentType === 'env') {
       // An environment file is created with permissions only its owner can
       // read, and it opens in the environment editor straight away.
@@ -81,7 +144,7 @@ async function submitNewItem() {
       await enterEditMode();
     }
   } catch (err) {
-    showToast('!', 'Failed to create: ' + (err.message || 'unknown error'));
+    showToast('!', 'Failed to ' + (currentType === 'rename' ? 'rename: ' : 'create: ') + (err.message || 'unknown error'));
   } finally {
     if (btnOk) btnOk.disabled = false;
   }

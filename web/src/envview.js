@@ -13,7 +13,7 @@
 import { $, $$, esc, S, doc_, api, apiPostJson, debounce } from './state.js';
 import { vp, showToast, copyToClipboard } from './ui.js';
 import { on, emit } from './bus.js';
-import { syncEditUI } from './editview.js';
+import { syncEditUI, exitEditMode } from './editview.js';
 import { updateStatus } from './status.js';
 import { drawTabs } from './tabs.js';
 
@@ -471,7 +471,14 @@ const isMacKey = () => /mac|iphone|ipad/i.test(navigator.userAgentData?.platform
 export function setEnvMode(mode) {
   const d = doc_();
   if (!d || !d.isEnv) return;
+  if (d.isEditing && mode !== 'raw') {
+    // Leaving raw text for the table goes through the normal exit so the
+    // autosave and the dirty check run first.
+    exitEditMode();
+    return;
+  }
   d.envRaw = mode === 'raw';
+  delete d.envRawFromTable;
   syncEditUI();
   syncEnvView();
 }

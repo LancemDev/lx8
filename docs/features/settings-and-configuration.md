@@ -32,6 +32,8 @@ lx8 stores all configuration in a single per-user global file (`~/.lx8/settings.
 | `editor.tabSize` | Text Editor | `4` | `2`, `4`, `8` | Number of spaces per tab |
 | `editor.wordWrap` | Text Editor | `"on"` | `"on"`, `"off"` | Soft line wrapping at editor boundary (also applies to the edit view) |
 | `editor.lineNumbers` | Text Editor | `"on"` | `"on"`, `"off"` | Line numbers display in gutter |
+| `editor.editOnOpen` | Text Editor | `true` | `true`, `false` | Open text files directly in the editor; previews, tables, `.env`, and large files keep their usual view |
+| `editor.autosave` | Text Editor | `true` | `true`, `false` | Write edits automatically after a short pause; `false` saves only with `Cmd/Ctrl+S` |
 | `editor.cursorStyle` | Text Editor | `"line"` | `"line"`, `"block"`, `"underline"` | Cursor rendering style |
 | `editor.cursorBlinking` | Text Editor | `"smooth"` | `"blink"`, `"smooth"`, `"solid"` | Cursor blinking animation style |
 | `editor.renderLineHighlight` | Text Editor | `"line"` | `"line"`, `"none"` | Highlight style for the active line |

@@ -1413,6 +1413,157 @@ func TestFileSave(t *testing.T) {
 	}
 }
 
+func TestFSRename(t *testing.T) {
+	s, root := newTestServer(t)
+
+	// 1. Rename a file into a new, nested directory.
+	body, _ := json.Marshal(map[string]string{
+		"path":    "main.go",
+		"newPath": "pkg/renamed.go",
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "main.go")); !os.IsNotExist(err) {
+		t.Fatalf("expected source to be gone, stat err = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "pkg", "renamed.go"))
+	if err != nil {
+		t.Fatalf("expected renamed file: %v", err)
+	}
+	if !bytes.Contains(data, []byte("package main")) {
+		t.Fatalf("renamed file lost its content: %q", data)
+	}
+
+	// 2. Refuse to overwrite an existing target.
+	if err := os.WriteFile(filepath.Join(root, "taken.go"), []byte("taken"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body, _ = json.Marshal(map[string]string{
+		"path":    "pkg/renamed.go",
+		"newPath": "taken.go",
+	})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409 conflict, got %d", rec.Code)
+	}
+
+	// 3. Reject traversal in either side.
+	for _, paths := range [][2]string{
+		{"../evil.go", "inside.go"},
+		{"pkg/renamed.go", "../escape.go"},
+	} {
+		body, _ = json.Marshal(map[string]string{"path": paths[0], "newPath": paths[1]})
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
+		s.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %q -> %q, got %d", paths[0], paths[1], rec.Code)
+		}
+	}
+
+	// 4. Refuse the root and anything inside .git.
+	for _, paths := range [][2]string{
+		{"", "moved"},
+		{"taken.go", ""},
+		{".git/config", "config"},
+		{"taken.go", ".git/config"},
+	} {
+		body, _ = json.Marshal(map[string]string{"path": paths[0], "newPath": paths[1]})
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
+		s.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %q -> %q, got %d", paths[0], paths[1], rec.Code)
+		}
+	}
+
+	// 5. Refuse moving a directory inside itself.
+	body, _ = json.Marshal(map[string]string{"path": "pkg", "newPath": "pkg/inner"})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for self-nesting, got %d", rec.Code)
+	}
+
+	// 6. Rename a directory, creating a missing parent.
+	body, _ = json.Marshal(map[string]string{"path": "pkg", "newPath": "lib/pkg"})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for directory rename, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "pkg")); !os.IsNotExist(err) {
+		t.Fatalf("expected pkg/ to be gone, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "lib", "pkg", "renamed.go")); err != nil {
+		t.Fatalf("expected directory contents at lib/pkg/renamed.go: %v", err)
+	}
+}
+
+func TestFSDelete(t *testing.T) {
+	s, root := newTestServer(t)
+
+	// 1. Delete a file.
+	body, _ := json.Marshal(map[string]string{"path": "main.go"})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/fs/delete", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "main.go")); !os.IsNotExist(err) {
+		t.Fatalf("expected main.go to be deleted, stat err = %v", err)
+	}
+
+	// 2. Delete a directory with content.
+	if err := os.MkdirAll(filepath.Join(root, "gone", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gone", "nested", "x.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body, _ = json.Marshal(map[string]string{"path": "gone"})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/fs/delete", bytes.NewReader(body))
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "gone")); !os.IsNotExist(err) {
+		t.Fatalf("expected gone/ to be deleted, stat err = %v", err)
+	}
+
+	// 3. Refuse the root, .git, and traversal.
+	for _, p := range []string{"", ".git", ".git/config", "../escape"} {
+		body, _ = json.Marshal(map[string]string{"path": p})
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodPost, "/api/fs/delete", bytes.NewReader(body))
+		s.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %q, got %d", p, rec.Code)
+		}
+	}
+
+	// 4. Missing paths are 404, not silent successes.
+	body, _ = json.Marshal(map[string]string{"path": "does-not-exist"})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/fs/delete", bytes.NewReader(body))
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
 func TestFSNew(t *testing.T) {
 	s, root := newTestServer(t)
 
@@ -1475,8 +1626,3 @@ func TestFSNew(t *testing.T) {
 		t.Fatalf("expected 400 for path traversal, got %d", rec.Code)
 	}
 }
-
-
-
-
-
