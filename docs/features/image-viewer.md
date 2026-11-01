@@ -6,7 +6,7 @@ lx8 includes a dedicated image viewing canvas and inspection toolset. It treats 
 
 ## Overview & Core Purpose
 
-Modern software repositories increasingly contain visual assets: UI design mockups, architectural diagrams, vector SVG icons, charts, favicons, and generated media assets. Furthermore, AI coding agents frequently generate diagrams or UI screenshots as part of documentation and feature development.
+Modern software repositories increasingly contain visual assets: UI design mockups, architectural diagrams, vector SVG icons, charts, favicons, and generated media assets.
 
 Switching back and forth between a code reader and external image preview tools breaks concentration. lx8 provides first-class support for opening image files directly in editor tabs. With precise zoom controls (up to 3200%), transparency background toggles, and pixelation options, developers can inspect graphics, verify icon alignment, and audit visual changes without leaving their browser workspace.
 
@@ -47,8 +47,8 @@ When adding SVG icons or favicons to a project:
 3. Press `b` to cycle through the checkerboard, dark, and light backgrounds to verify icon stroke contrast and transparent cutouts.
 4. Press `p` to inspect vector edges with nearest-neighbor sharpness.
 
-### Inspecting AI-Generated Diagrams
-When a coding agent creates or updates architectural diagrams:
+### Inspecting Architecture Diagrams
+When a change adds or updates architectural diagrams:
 1. Open the diagram directly from the file tree or click it inside the Markdown preview to open the lightbox.
 2. Click "Open in Tab" from the lightbox header to promote it to a full tab.
 3. Pan and zoom across complex system diagrams to verify relationships and labels.

@@ -93,7 +93,7 @@ export async function showHover(at, x, y) {
       '<button id="hc-def-src" title="' + withKeys('Jump to definition in Source ({Mod+Click})') + '">Definition (Source)</button>' +
       '<button id="hc-def-diff" title="' + withKeys('Jump to definition in Diff ({Mod+Alt+Click})') + '">Definition (Diff)</button>' +
       '<button id="hc-copy-ref" title="Copy file and line reference">Copy Ref</button>' +
-      '<button id="hc-copy-ai" title="Copy snippet with file path and line numbers">Copy with Context</button>' +
+      '<button id="hc-copy-ctx" title="Copy snippet with file path and line numbers">Copy with Context</button>' +
       '<button id="hc-find-refs" title="Find all usages across codebase">Usages</button>' +
       '<button id="hc-calls" title="' + withKeys('Trace callers and callees ({Alt+Shift+H})') + '">Calls</button>' +
     '</div>' +
@@ -105,7 +105,7 @@ export async function showHover(at, x, y) {
   const btnDefSrc = hovercard.querySelector('#hc-def-src');
   const btnDefDiff = hovercard.querySelector('#hc-def-diff');
   const btnRef = hovercard.querySelector('#hc-copy-ref');
-  const btnAi = hovercard.querySelector('#hc-copy-ai');
+  const btnCtx = hovercard.querySelector('#hc-copy-ctx');
   const btnRefs = hovercard.querySelector('#hc-find-refs');
   const btnCalls = hovercard.querySelector('#hc-calls');
 
@@ -123,13 +123,13 @@ export async function showHover(at, x, y) {
     e.stopPropagation();
     copyToClipboard(refPath, 'Copied', btnRef);
   };
-  if (btnAi) btnAi.onclick = (e) => {
+  if (btnCtx) btnCtx.onclick = (e) => {
     e.stopPropagation();
     const lineText = (d.lines && d.lines[at.line - 1]) || at.word || '';
     const ext = d.path.split('.').pop() || '';
     const lineStr = 'line ' + at.line;
     const text = '@' + d.path + ' ' + lineStr + '\n```' + ext + '\n' + lineText + '\n```';
-    copyToClipboard(text, 'Copied', btnAi);
+    copyToClipboard(text, 'Copied', btnCtx);
   };
   if (btnRefs) btnRefs.onclick = (e) => {
     e.stopPropagation();

@@ -1,6 +1,6 @@
-# Pull Request Review & Agent Collaboration
+# Pull Request Review
 
-lx8 checks out a pull request's full source tree and lets you review it like any local workspace: full codebase navigation, symbol outline, LSP intelligence and search, alongside a diff scoped to the PR's merge-base. On top of that you get inline comment drafting, AI batch application, review verdicts, conflict resolution by your coding harness, and merging. The same git panel a plain workspace has lets you commit and push fixes back to the PR's own branch, and pull in commits someone else pushed while you were reviewing.
+lx8 checks out a pull request's full source tree and lets you review it like any local workspace: full codebase navigation, symbol outline, LSP intelligence and search, alongside a diff scoped to the PR's merge-base. On top of that you get inline comment drafting, review verdicts, and merging. The same git panel a plain workspace has lets you commit and push fixes back to the PR's own branch, and pull in commits someone else pushed while you were reviewing.
 
 It works with **GitHub**, **GitLab** (gitlab.com and self-hosted), **Gitea / Forgejo / Codeberg**, and **Bitbucket Cloud**.
 
@@ -101,7 +101,7 @@ Tokens are stored in your lx8 settings file (`~/.lx8/settings.json`, or `$XDG_CO
 
 ### Without a token
 - Public repositories still check out, diff, and navigate.
-- You can draft review comments locally and use **⚡ Batch Apply** with local AI agents.
+- You can draft review comments locally.
 - The CLI banner says which forge needs a token and where lx8 would find one, for example:
   ```text
   access: read-only (no GitHub token: set GITHUB_TOKEN, set GH_TOKEN, or run `gh auth login` to submit reviews)
@@ -109,61 +109,55 @@ Tokens are stored in your lx8 settings file (`~/.lx8/settings.json`, or `$XDG_CO
 
 ---
 
-## Reviewing & Real-Time Agent Collaboration
+## Reviewing
 
 ### 1. Merge-Base Diff View
 - The **Changes** toggle in the sidebar defaults to all files modified by the PR.
 - Press **`Cmd/Ctrl+D`** on any file to open side-by-side or unified diffs.
 - The diff is computed against the merge-base between the PR head and its target branch, the same diff the forge shows.
 
-### 2. Live Agent Synchronization
-When you or your background AI coding agents (Claude Code, Gemini CLI, Cursor Agent, Antigravity, Aider, etc.) make edits to the PR checkout from other terminals:
+### 2. Live Synchronization
+When you or another tool edit the PR checkout from other terminals:
 - lx8's real-time file watcher picks up modifications without full re-indexing.
 - Gutter diffs, status badges, and open tabs reload live in the browser.
 
 ### 3. Line Comments & Hover Actions
 When hovering over code lines or diff lines:
-- A thread icon appears next to the line number.
-- Clicking it opens a context menu for that line. On a line that is part of the PR's diff it includes:
-  - **Add Review Comment**: Drafts an inline review comment.
-  - **Edit Inline**: Prompts your local AI coding agent to edit those lines directly.
-  - **Start Thread**: Opens a conversation with the agent about the line.
+- A line button appears next to the line number.
+- Clicking it opens a context menu for that line. On a line that is part of the PR's diff it includes **Add Review Comment**, which drafts an inline review comment, alongside the copy actions.
 - Alternatively, select any range of lines and press **`Alt+R`** (or click **Comment** on the selection bar) to open the review comment composer.
 
-### 4. Batch Applying Comments Locally (`⚡ Batch Apply`)
+### 4. Draft Comments
 Drafted review comments appear in the PR top bar and inline across files:
-- **⚡ Batch Apply** applies all drafted review comments across the whole pull request in one go, using your configured coding agent harness. The agent reads your comments as instructions and changes the code directly in the PR worktree.
-- Comments stay drafts until they are batch-applied or submitted. Drafts are saved outside the repository, per pull request, so reopening the same PR, with `lx8 <pr-url>` or from the [workbench](workbench.md), brings them back.
+- Comments stay drafts until they are submitted. Drafts are saved outside the repository, per pull request, so reopening the same PR, with `lx8 <pr-url>` or from the [workbench](workbench.md), brings them back.
 
 ### 5. Submitting Reviews
 The PR review bar at the bottom of the screen (right above the comments panel) holds the review summary and the verdict buttons:
 - **Submit Review**: feedback without an approval status (available to every reviewer with a token).
 - **Approve** / **Request Changes**: available when your token has push access to the repository.
 - Submitting sends every draft comment and the summary together. How each forge records them is in [Forge Differences](#forge-differences).
-- The verdict follows the branch. While a rebase is running or stopped halfway in the checkout, every verdict button is disabled. Once the checkout is rebased but not yet force-pushed, **Approve** stays disabled: the forge still holds the old commits, and approving now would approve those. When the forge reports conflicts, **Approve** still works but shows a dashed border and a tooltip saying the PR can't merge until the conflicts are resolved.
+- The verdict follows the branch. While a rebase is stopped halfway in the checkout, every verdict button is disabled. Once the checkout is rebased but not yet force-pushed, **Approve** stays disabled: the forge still holds the old commits, and approving now would approve those. When the forge reports conflicts, **Approve** still works but shows a dashed border and a tooltip saying the PR can't merge until the conflicts are resolved.
 
 ### 6. Merge Status, Resolving Conflicts, and Merging
-The first row of the PR bar shows a **status pill** with the forge's answer to "can this merge?": *Ready to merge*, *Checks failing*, *Conflicts with main*, *Behind main*, *Merge blocked*, *Draft*, or *Checking mergeability...* (lx8 asks again a few times while the forge computes it). The checkout's own state takes priority over the forge's: *Rebasing...*, *Rebase unfinished*, or *Rebased, not pushed*. Clicking the pill or the **Rebase with AI** button next to it takes the next step (resolve or force-push). When there is no next step, clicking the pill refreshes the status.
+The first row of the PR bar shows a **status pill** with the forge's answer to "can this merge?": *Ready to merge*, *Checks failing*, *Conflicts with main*, *Behind main*, *Merge blocked*, *Draft*, or *Checking mergeability...* (lx8 asks again a few times while the forge computes it). The checkout's own state takes priority over the forge's: *Rebase unfinished* or *Rebased, not pushed*. Clicking the pill takes the next step (show where the branch stands, or force-push). When there is no next step, clicking the pill refreshes the status.
 
-**Resolving conflicts / updating the branch.** When the PR conflicts with its base, or is behind it, click **Rebase with AI** (or click the status pill). This opens the git panel's [agent rebase flow](git-integration.md#catching-up-with-a-moving-remote), aimed at the PR's base:
-1. lx8 fetches the base branch itself, with your forge token, so the harness never needs credentials and never fetches.
-2. The git panel's notice card asks for permission: **Rebase with AI** (replays the PR's commits on top of the base) or **Merge with AI** (brings the base in with a merge commit). Pick the harness and model right there. Nothing runs until you click.
-3. The harness resolves conflicts and finishes the operation. It never pushes. **Cancel** stops it, and a rebase stopped halfway can be finished by the harness or aborted.
-4. After a merge, **Push to PR** is an ordinary push. After a rebase, the PR's commits have been rewritten, so the only way to update the PR is **Force-push**, and lx8 asks for confirmation first. The push uses `--force-with-lease` against the head the checkout last saw. If anyone else pushed to the branch in the meantime, the push is refused and their commits survive.
+**Resolving conflicts / updating the branch.** When the PR conflicts with its base, or is behind it, click the status pill:
+1. lx8 fetches the base branch itself, with your forge token, into `refs/lx8/base/<N>`, and the git panel reports how far behind the PR is.
+2. Rebase onto (or merge) that ref in a terminal inside the checkout, resolving any conflicts there. A rebase stopped halfway can be aborted from the git panel.
+3. After a merge, **Push** is an ordinary push. After a rebase, the PR's commits have been rewritten, so the only way to update the PR is **Force-push**, and lx8 asks for confirmation first. The push uses `--force-with-lease` against the head the checkout last saw. If anyone else pushed to the branch in the meantime, the push is refused and their commits survive.
 
 **Merging.** With push access, a split merge button sits next to **Approve**. The main button runs the method you used last (e.g. **Squash and merge**). The caret lists every method the repository allows, with a one-line description of each: **Create a merge commit**, **Squash and merge**, **Rebase and merge**. Clicking the merge button opens the merge dialog:
 - A method switcher. Edits made under one method are kept when you switch to another.
-- When **Squash and merge** is selected, a checkbox lets you **Rewrite commit message with AI** to automatically generate an informative commit summary and description using your coding harness.
-- For a merge commit or a squash: an editable **commit title** and **message**, prefilled with the usual defaults (`Title (#N)` and a list of the PR's commits for a squash; `Merge pull request #N from branch` for a merge commit). **Rewrite with AI** can also rewrite them from the PR's commits and diff on demand. It follows your [Commit Message Instructions](settings-and-configuration.md) from Settings plus any one-off instruction you type next to the button, and it rewrites the current text rather than starting from scratch. The result only fills the fields. Nothing merges until you confirm.
+- For a merge commit or a squash: an editable **commit title** and **message**, prefilled with the usual defaults (`Title (#N)` and a list of the PR's commits for a squash; `Merge pull request #N from branch` for a merge commit). Nothing merges until you confirm.
 - For a rebase merge: the list of commits that will be replayed.
 - Anything that makes merging now wrong blocks **Confirm**: a rebase in progress, a rebase not yet pushed, commits on the PR this checkout hasn't seen, or conflicts. Warnings that don't block are listed too: failing checks, and local commits that aren't pushed and won't be part of the merge.
 - The merge is tied to the head commit you reviewed. If the PR moved since then, the merge is refused.
 
 ### 7. Editing, Committing, and Pushing Back
 A PR checkout is a real git worktree, and the git panel works inside it exactly as it does in a plain workspace:
-- **Edit and commit**: Make a change (by hand, or by dispatching a coding agent on the checkout), stage it, and either write a commit message yourself or click **Commit with AI**.
+- **Edit and commit**: Make a change, stage it, write a commit message and click **Commit**.
 - **Push**: Sends the checkout's `HEAD` to the pull request's *actual* head branch on its actual repository — a fork included — not wherever the checkout happens to live locally.
-- **Pull**: Re-fetches the PR's current head. If new commits landed on it since you opened the review and your checkout can fast-forward onto them cleanly, lx8 updates the worktree and refreshes the diff, the PR bar, and the comments panel automatically. If your checkout has diverged — you made local commits that aren't on the PR head yet, or the head was force-pushed — lx8 refuses with a clear message rather than merging; commit and push first, or resolve it in a terminal. (Bringing the PR up to date with its *base* branch is the separate **Resolve conflicts** flow above.)
+- **Pull**: Re-fetches the PR's current head. If new commits landed on it since you opened the review and your checkout can fast-forward onto them cleanly, lx8 updates the worktree and refreshes the diff, the PR bar, and the comments panel automatically. If your checkout has diverged — you made local commits that aren't on the PR head yet, or the head was force-pushed — lx8 refuses with a clear message rather than merging; commit and push first, or resolve it in a terminal. (Bringing the PR up to date with its *base* branch is the separate flow above.)
 
 > [!IMPORTANT]
 > A PR checkout lives in a temporary directory for the life of the lx8 process (see [Multi-Session Isolation](#multi-session-isolation) above). Any edits you make there — committed or not — are gone once the session closes, unless you've pushed them back to the PR's branch first.
@@ -186,7 +180,7 @@ The table shows where each forge differs. Details follow.
 
 **GitLab**
 - **Review submission**: GitLab has no single call for submitting a review. Each draft becomes a diff thread, and the summary becomes a comment. **Approve** uses GitLab's approval, pinned to the commit you reviewed. **Request Changes** posts a "Changes requested" comment and withdraws your approval, if you had given one. A draft on an unchanged context line, which GitLab can't anchor from the data lx8 has, is posted as a comment that names the `path:line`.
-- **Merge methods** follow the project's settings. A project that uses merge commits (including semi-linear history) offers **Create a merge commit**. A project that uses fast-forward merges offers **Rebase and merge**, which lands the commits as they are. **Squash and merge** is offered unless squashing is disabled, and it is the only option when the project requires squashing. When the project requires a rebase first, the pill reads *Behind main*, and **Update branch** runs the agent rebase.
+- **Merge methods** follow the project's settings. A project that uses merge commits (including semi-linear history) offers **Create a merge commit**. A project that uses fast-forward merges offers **Rebase and merge**, which lands the commits as they are. **Squash and merge** is offered unless squashing is disabled, and it is the only option when the project requires squashing. When the project requires a rebase first, the pill reads *Behind main*; rebase onto the base locally and force-push.
 - **Threads**: general comment threads show as a flat list in the Conversation section.
 - **UI wording**: lx8 labels merge requests "PR #N" rather than GitLab's "!N".
 
@@ -225,18 +219,15 @@ Implementation details are in [the internals guide](../internals/github-pr-revie
 | Shortcut / Control | Context | Action |
 | :--- | :--- | :--- |
 | `Alt+R` | Selection in editor or diff view | Open review comment composer |
-| Line Hover (`✏`) | Hovering on editor line number | Choose between a review comment, an inline agent edit, or a thread |
+| Line Hover (`✏`) | Hovering on editor line number | Line menu: a review comment, or copy actions |
 | `Cmd/Ctrl+D` | Active tab | Toggle side-by-side / unified diff against merge-base |
 | Command Palette (`Cmd/Ctrl+K`) | Command Palette → **Git: Open Pull Request…** | Launch a new PR review tab |
 | **No token — click to connect** | PR header bar | Open the Connect dialog |
 | `Enter` / `Esc` | Connect dialog | Check and save the token / cancel |
-| **`⚡ Batch Apply`** | PR header bar | Dispatch all drafted comments to local AI coding harness |
 | **Submit Review** | PR header bar | Submit Approve / Request Changes / Comment to remote forge |
 | Status pill | PR header bar | Show whether the PR can merge; click for the next step (resolve, force-push) or to refresh |
 | **Squash and merge ▾** | PR header bar | Merge with the last-used method (caret: pick another); opens the merge dialog |
 | `Cmd/Ctrl+Enter` / `Esc` | Merge dialog | Confirm the merge / cancel |
-| **Resolve conflicts** | PR header bar | Rebase onto, or merge, the base branch with the coding harness (asks first) |
 | **Force-push** | Sidebar git panel | After a rebase: replace the PR branch's commits, with a lease (asks first) |
 | **Pull** | Sidebar git panel | Fast-forward the checkout onto the PR's current head; refuses on divergence |
 | **Push** | Sidebar git panel | Push the checkout's `HEAD` to the PR's actual head branch |
-| **Commit with AI** | Sidebar git panel | Write and commit a message for the staged diff with your coding harness |

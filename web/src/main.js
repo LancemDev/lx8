@@ -17,8 +17,6 @@ import { initShortcuts } from './shortcuts.js';
 import { initTheme } from './theme.js';
 import { initMarkdown } from './markdown.js';
 import { initDiff } from './diff.js';
-import { initAgent, applyAgentMeta, loadAgentAsync } from './agent.js';
-import { initThreads } from './thread.js';
 import { initMetrics, initLspMenu, refreshLspMenu, initStatusFit, updateMetricsDisplay, updateStatus } from './status.js';
 import { initSettings } from './settings.js';
 import { initVim } from './vim.js';
@@ -58,8 +56,6 @@ initPalette();
 initShortcuts();
 initMarkdown();
 initDiff();
-initAgent();
-initThreads();
 initMetrics();
 initLspMenu();
 initStatusFit();
@@ -100,7 +96,6 @@ initPRScope();
   if (S.meta.metrics) updateMetricsDisplay(S.meta.metrics);
   refreshLspMenu();
   updateSidebarToggleState();
-  applyAgentMeta();
   initPR();
   // The right sidebar starts closed (index.html's body carries right-hidden);
   // it is one click or Mod+J away when it is wanted, and the editor gets the
@@ -220,9 +215,6 @@ initPRScope();
       }
     }, 150);
   }
-
-  // Load harnesses and models asynchronously after the browser is loaded.
-  loadAgentAsync();
 
   // Load and asynchronously display tips
   startTipsAsync();

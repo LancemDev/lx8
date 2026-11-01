@@ -89,7 +89,7 @@ sequenceDiagram
 ```
 
 - Target paths returned by the server are normalized and admitted into `extAllowed`.
-- External files can be opened and inspected, but cannot be enumerated, searched, listed in the sidebar explorer tree, or edited with an agent.
+- External files can be opened and inspected, but cannot be enumerated, searched, or listed in the sidebar explorer tree.
 
 ## 5. Stateless Call Hierarchy Trails ([`calls.go`](../../calls.go))
 

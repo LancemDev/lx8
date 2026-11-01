@@ -42,9 +42,7 @@ func main() {
 		noUpdate     = flag.Bool("no-update", false, "do not auto-update lx8 on startup")
 		noColor      = flag.Bool("no-color", false, "disable colour output")
 		quiet        = flag.Bool("quiet", false, "suppress narration")
-		verbose      = flag.Bool("verbose", false, "log startup steps, requests, searches, symbols, and agent prompts to terminal")
-			agentCmd     = flag.String("agent", "", "pin the coding harness used for edits (claude, gemini, cursor-agent, agy, opencode, codex, aider, goose, or a command template containing {prompt}); detected and chosen in the UI when omitted")
-		noAgent      = flag.Bool("no-agent", false, "do not offer editing through a coding harness")
+		verbose      = flag.Bool("verbose", false, "log startup steps, requests, searches, and symbols to terminal")
 		_            = flag.Bool("y", false, "answer yes to prompts (deprecated; PRs are always opened without prompt)")
 		_            = flag.Bool("yes", false, "answer yes to prompts (alias for -y)")
 		basePathFlag = flag.String("base-path", "", "base URL path prefix to serve endpoints and assets from (e.g. /rev-123/)")
@@ -89,13 +87,10 @@ func main() {
 		for _, f := range []struct {
 			on   bool
 			flag string
-		}{{*noLSP, "-no-lsp"}, {*noGit, "-no-git"}, {*noAgent, "-no-agent"}} {
+		}{{*noLSP, "-no-lsp"}, {*noGit, "-no-git"}} {
 			if f.on {
 				childArgs = append(childArgs, f.flag)
 			}
-		}
-		if *agentCmd != "" {
-			childArgs = append(childArgs, "-agent", *agentCmd)
 		}
 		runWorkbench(*host, *port, *basePathFlag, !*noOpen, !*noUpdate, childArgs)
 		return
@@ -195,14 +190,6 @@ func main() {
 	if pr != nil {
 		pxSrv.SetPR(pr)
 	}
-	var agent *agentManager
-	if !*noAgent {
-		agent, err = newAgentManager(root, *agentCmd, lsp)
-		if err != nil {
-			fatal(fmt.Errorf("-agent: %w", err))
-		}
-		pxSrv.SetAgent(agent)
-	}
 	initDur := time.Since(tInit)
 
 	srv := &http.Server{Handler: pxSrv}
@@ -267,28 +254,6 @@ func main() {
 		} else if uiVerbose {
 			uiStatus("ok", "checked language servers (none installed)", fmtDuration(lspDur), 0, os.Stdout)
 		}
-		if agent != nil {
-			tAgent := time.Now()
-			var found []string
-			for _, h := range agent.Detect() {
-				if h.Installed {
-					item := h.Name
-					if h.Model != "" {
-						item = fmt.Sprintf("%s (%s)", h.Name, h.Model)
-					}
-					found = append(found, item)
-				}
-			}
-			agentDur := time.Since(tAgent)
-			if uiVerbose {
-				if len(found) > 0 {
-					uiStatus("ok", fmt.Sprintf("detected coding harnesses: %s", strings.Join(found, ", ")), fmtDuration(agentDur), 0, os.Stdout)
-				} else {
-					uiStatus("ok", "checked coding harnesses (none found)", fmtDuration(agentDur), 0, os.Stdout)
-				}
-			}
-		}
-
 	}()
 
 	// Check for updates in the background once the server is already up, so
@@ -333,8 +298,6 @@ func main() {
 		<-shutDown
 	}
 	lsp.Close()
-	agent.Close()
-	pxSrv.CloseThreads()
 	pr.Close()
 
 	if interrupted {

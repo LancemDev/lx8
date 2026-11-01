@@ -48,7 +48,7 @@ lx8 natively detects and communicates with standard language servers across majo
 ## Developer Workflows & Practical Value
 
 ### Semantic Auditing & Refactoring Verification
-When verifying changes made by a coding agent, you often need to confirm that function argument changes propagate correctly. Using `Shift+F12` on the function signature lists every call site across the repository so you can verify each caller at a glance.
+When verifying a change, you often need to confirm that function argument changes propagate correctly. Using `Shift+F12` on the function signature lists every call site across the repository so you can verify each caller at a glance.
 
 ### Deep Architectural Exploration via Call Trails
 To understand how an unfamiliar subsystem processes requests:

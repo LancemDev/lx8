@@ -6,7 +6,7 @@ This document details the end-to-end architecture, performance optimizations, an
 
 ## 1. Problem Statement & Motivation
 
-Most file mutations (such as `git checkout`, `git pull`, branch switching, code generation, or edits from an external IDE) occur on the host filesystem outside of lx8's process boundary. Edits lx8 dispatches to a coding harness reuse the same reload path once they finish (see [Harness Editing & Agent Dispatch](agent-editing.md)).
+Most file mutations (such as `git checkout`, `git pull`, branch switching, code generation, or edits from an external IDE) occur on the host filesystem outside of lx8's process boundary.
 
 Users trigger a workspace re-index by clicking the **Re-index** button (`#btn-reindex` in the sidebar header) or via the Command Palette (`Mod+K` &rarr; `Re-index Workspace`).
 
@@ -259,7 +259,7 @@ updateStatus();
   diffDismissed: !!keep.diffDismissed || !keep.diffMode,
   diffScroll: keep === activeDoc && keep.diffMode ? diffScrollTop() : 0,
   ```
-  - A tab in source view stays in source, even when the reload finds new changes (for example after an agent edit). It is marked `diffDismissed`, so `loadGutter()` does not switch it to the diff either. The Diff button is one click away.
+  - A tab in source view stays in source, even when the reload finds new changes (for example after an external edit). It is marked `diffDismissed`, so `loadGutter()` does not switch it to the diff either. The Diff button is one click away.
   - A tab in the diff view keeps its split or unified layout, and the active tab's diff scroll offset is restored once the new diff renders.
   - If changes were committed externally, `hasDiff` evaluates to `false`, and `diffMode` cleanly resets to `null`.
   - Opening a file fresh is unaffected: a modified file still opens in the diff view.

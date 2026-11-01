@@ -312,7 +312,7 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
     const newCur = Math.max(1, Math.min(keep.cur || 1, j.total || 1));
 
     /* A reload keeps each tab in the view it was in. The file changing under
-       it, say from an agent edit, is no reason to swap source for a diff, so a
+       it, say from another program, is no reason to swap source for a diff, so a
        tab in source is marked dismissed and loadGutter leaves it there too. */
     const diffMode = hasDiff ? (keep.diffMode || (j.deleted ? (layoutPref() || 'split') : null)) : null;
 

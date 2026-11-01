@@ -10,9 +10,8 @@ import { displayPath, cancelSearch } from './search.js';
 import { groupHits, flashFind, canAskServer, lspCall, positionNow } from './lsp.js';
 
 export function firstInspectorTab() {
-  if ($('#tab-threads') && !$('#tab-threads').hidden) return 'threads';
   const first = Array.from($$('.inspector-tab')).find(b => !b.hidden);
-  return first?.dataset.itab || 'threads';
+  return first?.dataset.itab || 'refs';
 }
 
 export function showRightInspector(tab) {
@@ -36,9 +35,7 @@ export function setRightInspectorTab(tab) {
   $('#pane-right-symbols')?.classList.toggle('active', tab === 'symbols');
   $('#pane-right-calls')?.classList.toggle('active', tab === 'calls');
   $('#pane-right-search')?.classList.toggle('active', tab === 'search');
-  $('#pane-right-threads')?.classList.toggle('active', tab === 'threads');
   $('#pane-right-tips')?.classList.toggle('active', tab === 'tips');
-  if (tab === 'threads') emit('threads:shown');
   if (tab === 'tips') {
     emit('tips:shown');
     $('#tips-filter')?.focus();

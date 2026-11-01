@@ -37,7 +37,7 @@ const request = async (method, path, params, opts = {}) => {
 
   const r = await fetch(u, fetchOpts);
   const j = await r.json();
-  // The body rides along: some replies, like a failed agent job, carry detail beyond the message.
+  // The body rides along: some replies, like a refused pull, carry detail beyond the message.
   if (j.error) throw Object.assign(new Error(j.error), { body: j });
   return j;
 };
@@ -170,10 +170,6 @@ export const LH = 20, CHUNK = 1000, OVERSCAN = 24;
  * @property {any} [metrics]
  * @property {any} [pr]
  * @property {{info: {name: string, label: string, tokenKey: string, tokenCategory: string, tokenHint: string}, hasToken: boolean}|null} [forge]
- * @property {any} [agents]
- * @property {string} [agent]
- * @property {string} [agentModel]
- * @property {boolean} [agentPinned]
  */
 
 /**
@@ -199,7 +195,6 @@ export const LH = 20, CHUNK = 1000, OVERSCAN = 24;
  * @property {boolean} mdPreview
  * @property {boolean} tablePreview
  * @property {any} settings
- * @property {Array<{id: string, path: string, l1: number, l2: number}>} agentTargets
  * @property {number} unpushedCount
  */
 
@@ -225,7 +220,6 @@ export const S = {
   mdPreview: true,   // Markdown tabs open rendered (default ON)
   tablePreview: true, // CSV and TSV tabs open as a table (default ON)
   settings: null,    // loaded from /api/settings
-  agentTargets: [],  // [{ id, path, l1, l2 }, ...] ranges of open compose/edit sessions
   unpushedCount: 0,  // commits ahead of the tracking branch; owned by unpushed.js
 };
 

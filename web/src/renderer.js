@@ -72,21 +72,18 @@ export function paint() {
 
   let html = '';
   const gut = d.gutter || null;
-  const agentRanges = (S.agentTargets || []).filter(t => t.path === d.path);
   for (let i = first; i < last; i++) {
     const n = i + 1;
     const body = d.lines[i];
     let rc = 'row', gc = 'g';
     if (n === d.cur) rc += ' cur';
-    if (agentRanges.some(r => n >= r.l1 && n <= r.l2)) rc += ' agent-sel';
-    if (agentRanges.some(r => n === r.l1)) rc += ' agent-anchor';
     if (gut) {
       const m = gut.marks.get(n);
       if (m) gc += m === 'add' ? ' gut-add' : ' gut-mod';
       if (gut.dels.has(n)) rc += ' gut-del';
     }
     html += '<div class="' + rc + '" data-l="' + n + '">' +
-      '<div class="' + gc + '"><span class="line-btn" role="button" data-l="' + n + '" title="Thread and line actions">Edit</span>' + n + '</div><div class="c">' + (body === undefined ? '' : body) + '</div></div>';
+      '<div class="' + gc + '"><span class="line-btn" role="button" data-l="' + n + '" title="Line actions">Edit</span>' + n + '</div><div class="c">' + (body === undefined ? '' : body) + '</div></div>';
   }
   const sel = saveSelection();
   rowsEl.style.transform = 'translateY(' + (first * LH) + 'px)';

@@ -6,7 +6,7 @@ This document describes lx8's first-class image viewing architecture: how standa
 
 ## 1. Overview & Motivation
 
-Modern software repositories increasingly contain visual assets: SVG icons, UI mockups, generated architectural diagrams, charts, favicon bundles, and asset pipelines. When pairing with coding agents that generate or modify images and documentation, developers need to inspect these visual outputs immediately without switching to an external tool or desktop previewer.
+Modern software repositories increasingly contain visual assets: SVG icons, UI mockups, generated architectural diagrams, charts, favicon bundles, and asset pipelines. Developers need to inspect these visual outputs immediately without switching to an external tool or desktop previewer.
 
 lx8 treats image formats (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.ico`, `.bmp`, `.avif`) as first-class documents alongside source code and Markdown.
 
@@ -82,7 +82,7 @@ When an image tab is active, `syncImageView()` makes `#imgview` visible and hide
 
 ### Workspace Reindexes
 
-When an agent edit or filesystem event triggers `reloadOpenTabs()`, image tabs are preserved: their file size is updated from the new `/api/file` stat response while preserving zoom scale, pan position, and background mode.
+When a filesystem event triggers `reloadOpenTabs()`, image tabs are preserved: their file size is updated from the new `/api/file` stat response while preserving zoom scale, pan position, and background mode.
 
 ---
 

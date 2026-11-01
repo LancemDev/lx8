@@ -15,33 +15,29 @@ import (
 // settings stores user configuration written to ~/.lx8/settings.json (or XDG_CONFIG_HOME/lx8/settings.json).
 // All settings are optional pointers so omitted values fall back to application defaults.
 type settings struct {
-	Agent  string            `json:"agent,omitempty"`
-	Models map[string]string `json:"models,omitempty"`
-
-	EditorFontSize              *float64 `json:"editor.fontSize,omitempty"`
-	EditorFontFamily            *string  `json:"editor.fontFamily,omitempty"`
-	EditorLineHeight            *float64 `json:"editor.lineHeight,omitempty"`
-	EditorTabSize               *int     `json:"editor.tabSize,omitempty"`
-	EditorWordWrap              *string  `json:"editor.wordWrap,omitempty"`
-	EditorLineNumbers           *string  `json:"editor.lineNumbers,omitempty"`
-	EditorVimMode               *bool    `json:"editor.vimMode,omitempty"`
-	EditorRenderWhitespace      *string  `json:"editor.renderWhitespace,omitempty"`
-	EditorMinimapEnabled        *bool    `json:"editor.minimap.enabled,omitempty"`
-	WorkbenchColorTheme         *string  `json:"workbench.colorTheme,omitempty"`
-	DiffEditorRenderSideBySide  *bool    `json:"diffEditor.renderSideBySide,omitempty"`
-	MarkdownPreviewOpen         *bool    `json:"markdown.preview.open,omitempty"`
-	TablePreviewOpen            *bool    `json:"table.preview.open,omitempty"`
-	GitHubToken                 *string  `json:"github.token,omitempty"`
-	GitLabToken                 *string  `json:"gitlab.token,omitempty"`
-	GitLabHost                  *string  `json:"gitlab.host,omitempty"`
-	GiteaToken                  *string  `json:"gitea.token,omitempty"`
-	GiteaHost                   *string  `json:"gitea.host,omitempty"`
-	BitbucketToken              *string  `json:"bitbucket.token,omitempty"`
-	BitbucketEmail              *string  `json:"bitbucket.email,omitempty"`
-	GitCommitMessageInstruction *string  `json:"git.commitMessageInstruction,omitempty"`
-	ServerBasePath              *string  `json:"server.basePath,omitempty"`
-	ExplorerAutoReveal          *bool    `json:"explorer.autoReveal,omitempty"`
-	TipsEnabled                 *bool    `json:"tips.enabled,omitempty"`
+	EditorFontSize             *float64 `json:"editor.fontSize,omitempty"`
+	EditorFontFamily           *string  `json:"editor.fontFamily,omitempty"`
+	EditorLineHeight           *float64 `json:"editor.lineHeight,omitempty"`
+	EditorTabSize              *int     `json:"editor.tabSize,omitempty"`
+	EditorWordWrap             *string  `json:"editor.wordWrap,omitempty"`
+	EditorLineNumbers          *string  `json:"editor.lineNumbers,omitempty"`
+	EditorVimMode              *bool    `json:"editor.vimMode,omitempty"`
+	EditorRenderWhitespace     *string  `json:"editor.renderWhitespace,omitempty"`
+	EditorMinimapEnabled       *bool    `json:"editor.minimap.enabled,omitempty"`
+	WorkbenchColorTheme        *string  `json:"workbench.colorTheme,omitempty"`
+	DiffEditorRenderSideBySide *bool    `json:"diffEditor.renderSideBySide,omitempty"`
+	MarkdownPreviewOpen        *bool    `json:"markdown.preview.open,omitempty"`
+	TablePreviewOpen           *bool    `json:"table.preview.open,omitempty"`
+	GitHubToken                *string  `json:"github.token,omitempty"`
+	GitLabToken                *string  `json:"gitlab.token,omitempty"`
+	GitLabHost                 *string  `json:"gitlab.host,omitempty"`
+	GiteaToken                 *string  `json:"gitea.token,omitempty"`
+	GiteaHost                  *string  `json:"gitea.host,omitempty"`
+	BitbucketToken             *string  `json:"bitbucket.token,omitempty"`
+	BitbucketEmail             *string  `json:"bitbucket.email,omitempty"`
+	ServerBasePath             *string  `json:"server.basePath,omitempty"`
+	ExplorerAutoReveal         *bool    `json:"explorer.autoReveal,omitempty"`
+	TipsEnabled                *bool    `json:"tips.enabled,omitempty"`
 }
 
 var settingsMu sync.Mutex
@@ -360,41 +356,6 @@ var settingsSchema = []settingSchemaItem{
 		Default:     true,
 	},
 	{
-		Key:         "agent.harness",
-		Title:       "Coding Harness",
-		Description: "Coding agent harness invoked for code edits (e.g. claude, gemini, cursor-agent, agy, opencode, codex, aider, goose).",
-		Category:    "Agent / AI",
-		Type:        "string",
-		Default:     "",
-	},
-	{
-		Key:         "agent.timeoutSeconds",
-		Title:       "Agent Timeout (Seconds)",
-		Description: "Controls the maximum execution time in seconds for agent edits before canceling.",
-		Category:    "Agent / AI",
-		Type:        "number",
-		Default:     120.0,
-		Min:         numPtr(10.0),
-		Max:         numPtr(600.0),
-		Step:        numPtr(10.0),
-	},
-	{
-		Key:         "agent.autoAcceptEdits",
-		Title:       "Auto Accept Agent Edits",
-		Description: "Controls whether agent-generated code diffs are accepted without manual confirmation.",
-		Category:    "Agent / AI",
-		Type:        "boolean",
-		Default:     false,
-	},
-	{
-		Key:         "git.commitMessageInstruction",
-		Title:       "Commit Message Instructions",
-		Description: "Extra instructions given to the coding harness when it writes a commit message for the staged diff (e.g. \"Follow Conventional Commits\" or \"Reference the ticket number in the branch name\").",
-		Category:    "Git & Diff",
-		Type:        "textarea",
-		Default:     "",
-	},
-	{
 		Key:         "github.token",
 		Title:       "GitHub Token",
 		Description: "Personal access token used to check out and review pull requests (lx8 <url>). Takes precedence over the GITHUB_TOKEN environment variable and 'gh auth token'.",
@@ -473,13 +434,11 @@ var settingsSchema = []settingSchemaItem{
 }
 
 func defaultSettingsMap() map[string]any {
-	res := make(map[string]any, len(settingsSchema)+3)
+	res := make(map[string]any, len(settingsSchema)+1)
 	for _, item := range settingsSchema {
 		res[item.Key] = item.Default
 	}
 	res["explorer.autoRelveal"] = true
-	res["agent"] = ""
-	res["models"] = map[string]string{}
 	return res
 }
 
@@ -521,29 +480,12 @@ func readSettingsLocked() settings {
 		_ = json.Unmarshal(b, &s)
 	}
 
-	// Bi-directional bridge between agent <-> agent.harness
-	if s.Agent == "" {
-		if h, ok := raw["agent.harness"].(string); ok && h != "" {
-			s.Agent = h
-		}
-	}
 	// Support server.basePath and basePath fallback
 	if s.ServerBasePath == nil {
 		if bp, ok := raw["server.basePath"].(string); ok && bp != "" {
 			s.ServerBasePath = &bp
 		} else if bp, ok := raw["basePath"].(string); ok && bp != "" {
 			s.ServerBasePath = &bp
-		}
-	}
-	// Bi-directional bridge between models <-> agent.models
-	if s.Models == nil || len(s.Models) == 0 {
-		if am, ok := raw["agent.models"].(map[string]any); ok {
-			s.Models = make(map[string]string, len(am))
-			for k, v := range am {
-				if vs, ok := v.(string); ok {
-					s.Models[k] = vs
-				}
-			}
 		}
 	}
 	// Support explorer.autoReveal and explorer.autoRelveal
@@ -572,20 +514,6 @@ func readMergedSettingsMap() map[string]any {
 
 	for k, v := range raw {
 		res[k] = v
-	}
-
-	// Synchronize agent / agent.harness
-	if ag, ok := raw["agent"].(string); ok && ag != "" {
-		res["agent.harness"] = ag
-	} else if ah, ok := raw["agent.harness"].(string); ok && ah != "" {
-		res["agent"] = ah
-	}
-
-	// Synchronize models / agent.models
-	if m, ok := raw["models"].(map[string]any); ok && len(m) > 0 {
-		res["agent.models"] = m
-	} else if am, ok := raw["agent.models"].(map[string]any); ok && len(am) > 0 {
-		res["models"] = am
 	}
 
 	// Synchronize server.basePath / basePath
@@ -639,35 +567,6 @@ func readRawSettingsJSON() string {
 	return string(data)
 }
 
-// writeSettings saves the agent and models choices while preserving other settings.
-func writeSettings(s settings) error {
-	p := settingsPath()
-	if p == "" {
-		return errors.New("no home directory to save settings in")
-	}
-	settingsMu.Lock()
-	defer settingsMu.Unlock()
-
-	raw := readSettingsRawMap()
-	if s.Agent != "" {
-		raw["agent"] = s.Agent
-		raw["agent.harness"] = s.Agent
-	} else {
-		delete(raw, "agent")
-		delete(raw, "agent.harness")
-	}
-
-	if s.Models != nil && len(s.Models) > 0 {
-		raw["models"] = s.Models
-		raw["agent.models"] = s.Models
-	} else if s.Agent == "" {
-		delete(raw, "models")
-		delete(raw, "agent.models")
-	}
-
-	return writeRawMapLocked(p, raw)
-}
-
 // updateSettingsMap merges key-value pairs into settings.json without losing existing keys.
 func updateSettingsMap(updates map[string]any) error {
 	p := settingsPath()
@@ -683,36 +582,6 @@ func updateSettingsMap(updates map[string]any) error {
 			delete(raw, k)
 		} else {
 			raw[k] = v
-		}
-
-		// Keep agent / agent.harness in sync
-		if k == "agent" {
-			if v == nil || v == "" {
-				delete(raw, "agent.harness")
-			} else {
-				raw["agent.harness"] = v
-			}
-		} else if k == "agent.harness" {
-			if v == nil || v == "" {
-				delete(raw, "agent")
-			} else {
-				raw["agent"] = v
-			}
-		}
-
-		// Keep models / agent.models in sync
-		if k == "models" {
-			if v == nil {
-				delete(raw, "agent.models")
-			} else {
-				raw["agent.models"] = v
-			}
-		} else if k == "agent.models" {
-			if v == nil {
-				delete(raw, "models")
-			} else {
-				raw["models"] = v
-			}
 		}
 
 		// Keep server.basePath / basePath in sync
@@ -763,13 +632,6 @@ func saveRawSettingsJSON(rawJSON []byte) error {
 	}
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
-
-	// Sync agent bridges if present
-	if ag, ok := m["agent"].(string); ok && ag != "" {
-		m["agent.harness"] = ag
-	} else if ah, ok := m["agent.harness"].(string); ok && ah != "" {
-		m["agent"] = ah
-	}
 
 	return writeRawMapLocked(p, m)
 }
