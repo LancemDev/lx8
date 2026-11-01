@@ -1,8 +1,9 @@
 // web/src/gitpanel.js
-// Sidebar git panel: stage/commit/push/pull, shown whenever the workspace is
-// a git repo (same gate as the diff-view toggle in status.js). In a PR
-// review session (S.meta.pr set), Push/Pull target the PR's actual head
-// branch instead of the checkout's own remote -- see pr.go's Push/Pull.
+// Sidebar git panel: stage/commit/push/pull, shown while the sidebar is in
+// Git-changes mode. File mode is the editing surface and keeps the panel out
+// of the way; one click on the Git toggle brings it back. In a PR review
+// session (S.meta.pr set), Push/Pull target the PR's actual head branch
+// instead of the checkout's own remote -- see pr.go's Push/Pull.
 import { $, esc, S, api, apiPostJson } from './state.js';
 import { showToast, copyToClipboard, flashActionSuccess } from './ui.js';
 import { reindexWorkspace } from './panels.js';
@@ -16,6 +17,7 @@ import { on, emit } from './bus.js';
 import { commitFileRows, COMMIT_FILES_PAGE, loadCommitFiles, cachedCommitFiles } from './commitfiles.js';
 import { triggerRefresh } from './gitstream.js';
 import { registerAgentPicker } from './agent.js';
+import { inGitMode } from './tree.js';
 
 const panel = () => $('#git-panel');
 
@@ -84,7 +86,7 @@ export function initGitPanel() {
 function updateGitPanelVisibility() {
   const p = panel();
   if (!p) return;
-  p.hidden = !S.meta?.git;
+  p.hidden = !S.meta?.git || !inGitMode();
   const nudge = $('#git-token-nudge');
   if (nudge) {
     // Only for a remote on a forge lx8 knows. The PR bar already carries its
@@ -430,6 +432,12 @@ function initNotice() {
   on('pr:force-push', confirmForcePush);
   on('pr:pull', doPull);
   on('forge:connected', updateGitPanelVisibility);
+  on('sidebar:mode', () => {
+    updateGitPanelVisibility();
+    // Hiding the panel gives the tree (and the space around it) new height.
+    layout();
+    render();
+  });
 }
 
 /**

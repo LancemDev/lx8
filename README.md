@@ -141,8 +141,11 @@ Full details: [docs/features/env-editor.md](docs/features/env-editor.md).
 
 ## Everything else
 
-lx8 is a complete code navigator, not only an env editor.
+lx8 is a lightweight code editor and navigator, not only an env editor.
 
+- **Editor-first** -- clicking a text file opens it with syntax highlighting,
+  autosave on by default, find and replace, line comments, and duplicate-line.
+  Markdown, tables, and `.env` keep their rendered or table views.
 - **Review workbench** -- run `lx8` with no arguments to open a launcher for
   directories and pull requests, all on one port.
 - **Pull request review** -- review a PR from GitHub, GitLab, Gitea/Forgejo
@@ -150,9 +153,11 @@ lx8 is a complete code navigator, not only an env editor.
 - **Fast navigation** -- fuzzy file search (`Cmd/Ctrl+P`), symbol outline
   (`Cmd/Ctrl+Shift+O`), workspace search (`Cmd/Ctrl+Shift+F`), in milliseconds.
 - **Direct file editing** -- edit and save any file in the browser
-  (`Cmd/Ctrl+E`, `Cmd/Ctrl+S`).
+  (`Cmd/Ctrl+E`), with autosave and save-all (`Cmd/Ctrl+Alt+S`).
+- **File management** -- create, rename, move, and delete files and folders
+  from the tree's context menu.
 - **Git and diffs** -- live status, split and unified diffs, stage, commit,
-  push and pull from the sidebar.
+  push and pull from the sidebar's Changes view.
 - **Agent threads** -- anchor a conversation to a code range (`Alt+T`) and
   dispatch it to Claude Code, Cursor Agent, OpenCode, Codex or the harness
   you already use.
@@ -176,6 +181,8 @@ Full feature guide: [docs/features/README.md](docs/features/README.md).
 | `Cmd/Ctrl+Shift+F` | Search in files |
 | `Cmd/Ctrl+E` | Edit the file |
 | `Cmd/Ctrl+S` | Save |
+| `Cmd/Ctrl+Alt+S` | Save all edited files |
+| `Cmd/Ctrl+Alt+F` | Find and replace in the editor |
 | `Cmd/Ctrl+,` | Settings |
 | `Cmd/Ctrl+B` | Toggle the sidebar |
 | `Cmd/Ctrl+J` | Toggle the inspector |
@@ -196,6 +203,8 @@ modal at `Cmd/Ctrl+`, which writes the file as you change it.
 | :--- | :--- | :--- |
 | `env.autosave` | `true` | Writes a `.env` file without being asked |
 | `env.autosaveDelay` | `600` | Milliseconds to wait after the last change |
+| `editor.autosave` | `true` | Writes a source file after a short pause |
+| `editor.editOnOpen` | `true` | Opens text files directly in the editor |
 | `editor.fontSize` | `13.5` | Font size in the code viewer |
 | `workbench.colorTheme` | `dark` | The theme |
 

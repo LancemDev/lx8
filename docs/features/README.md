@@ -19,7 +19,7 @@ This directory provides comprehensive documentation for all lx8 user-facing feat
 | **Review Workbench** | `lx8` | Open any directory or pull request from one page, with folder completion, a folder browser, PRs as worktrees of your existing clone, and persistent recent and pinned workspaces | [Review Workbench](workbench.md) |
 | **Pull Request Review** | `lx8 <pr-url>`, `Alt+R` | GitHub, GitLab, Gitea/Forgejo and Bitbucket Cloud: full-tree checkout, merge-base diffing, draft comments with Approve / Request Changes / Comment, AI conflict resolution, merging, and committing/pushing/pulling straight from the checkout | [Pull Request Review](github-pr-review.md) · [Getting Started](pr-review-getting-started.md) |
 | **Tips & Tricks System** | `?` / `#btn-help` | Interactive floating tip widget, inspector tab, and offline fallbacks for feature discoverability | [Tips System](tips-system.md) |
-| **Direct File Editing** | `Cmd/Ctrl+E`, `Cmd/Ctrl+S` | Edit and save a file in the browser, create new files and folders, word wrap and unsaved-change protection | [File Editing](file-editing.md) |
+| **Direct File Editing** | `Cmd/Ctrl+E`, `Cmd/Ctrl+S` | Editor-first text editing with local syntax highlighting, autosave on by default, find and replace, line comments, save-all, and create/rename/delete from the tree | [File Editing](file-editing.md) |
 | **Coding Agent Editing** | `Alt+E`, Right-click | Delegating edits to Claude Code, Gemini CLI, Cursor Agent, and more | [Agent Editing](agent-editing.md) |
 | **Threads** | `Alt+T` | Long-running, multi-turn conversations with your coding harness that can read and change any file, with per-turn changed files | [Threads](threads.md) |
 | **Semantic Code Intelligence** | `F12`, `Shift+F12`, `Alt+Shift+H` | Go to Definition, Find References, Call Trails, and Hover docs | [LSP & Intelligence](lsp-code-intelligence.md) |
@@ -80,7 +80,7 @@ Modern developers spend substantial time verifying diffs and reviewing code gene
 
 ## 5. Coding Agent Editing & Delegation
 
-lx8 intentionally omits a heavyweight text editor in favor of direct collaboration with the user's preferred coding agents:
+lx8 keeps its own lightweight editor for direct changes and collaborates with the user's preferred coding agents for larger work:
 
 - **[Editing with Coding Agents](agent-editing.md)**: Select any code block in a source file or git diff, press `Alt+E` (or right-click), describe the required change, and lx8 delegates the task directly to your chosen agent harness (Claude Code, Gemini CLI, Cursor Agent, Antigravity, OpenCode, Codex, Aider, or Goose). Execution progress streams to the launch terminal, while lx8 automatically detects file changes and reloads tabs in place upon completion.
 - **[Threads](threads.md)**: For questions and multi-file work, select code and press `Alt+T` to open a long-running conversation in the right sidebar. The harness can read and change any file, replies stream in with the files each turn touched, and every message continues the same conversation. Threads are saved and survive restarts.

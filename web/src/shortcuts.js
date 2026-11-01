@@ -23,7 +23,7 @@ import { handleVimKeyDown, isVimEnabled, getVimMode, showVimHelp, closeVimHelp }
 import { handleImageKey } from './imageview.js';
 import { submitBatch } from './agent.js';
 import { reindexWorkspace } from './panels.js';
-import { enterEditMode, exitEditMode, saveActiveFile } from './editview.js';
+import { enterEditMode, exitEditMode, saveActiveFile, saveAllFiles } from './editview.js';
 import { saveEnvDoc } from './envview.js';
 import { toggleEnvPanel } from './envpanel.js';
 import { navigateToTips } from './tips.js';
@@ -36,8 +36,12 @@ export const SHORTCUTS = [
   [['Mod+K'], 'Quick search / palette'], [['Mod+P'], 'Go to file'],
   [['Mod+Shift+P'], 'Command palette'], [['Mod+Shift+O'], 'Go to symbol'],
   [['Mod+Shift+F'], 'Search in files'], [['Mod+Shift+R'], 'Refresh workspace'], [['Mod+F'], 'Find in file'],
+  [['Mod+Alt+F'], 'Find and replace (editor)'],
   [['Mod+Shift+E'], 'Environment files (.env)'],
   [['Mod+E'], 'Toggle edit mode'], [['Mod+S'], 'Save file (in edit mode)'],
+  [['Mod+Alt+S'], 'Save all edited files'],
+  [['Mod+/'], 'Toggle line comment (editor)'], [['Shift+Alt+Down'], 'Duplicate line (editor)'],
+  [['Shift+Tab'], 'Outdent line / selection (editor)'],
   [['Mod+G'], 'Go to line'], [['Mod+D'], 'Toggle diff view (git)'], [['Alt+Z'], 'Toggle word wrap'],
   [['Alt+M'], 'Toggle Markdown / table preview'],
   [['Enter', 'Shift+Enter'], 'Next / previous match'],
@@ -160,6 +164,23 @@ export function initShortcuts() {
     if (mod && e.shiftKey && (e.key === 'E' || e.key === 'e')) { e.preventDefault(); toggleEnvPanel(); return; }
     if (mod && !e.shiftKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); openPalette('file'); return; }
     if (mod && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); openPalette('line'); return; }
+    if (mod && e.altKey && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      openFind(S.lastWord, { replace: true });
+      return;
+    }
+    // Ctrl+H is the familiar replace shortcut on Linux/Windows. Cmd+H hides
+    // the app on macOS, so it stays untouched there.
+    if (!isMac && mod && !e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
+      e.preventDefault();
+      openFind(S.lastWord, { replace: true });
+      return;
+    }
+    if (mod && e.altKey && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      saveAllFiles();
+      return;
+    }
     if (mod && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(S.lastWord); return; }
     if (mod && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();

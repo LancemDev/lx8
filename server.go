@@ -151,6 +151,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc(s.routePath("/api/env/save"), s.handleEnvSave)
 	s.mux.HandleFunc(s.routePath("/api/env/create"), s.handleEnvCreate)
 	s.mux.HandleFunc(s.routePath("/api/fs/new"), s.handleFSNew)
+	s.mux.HandleFunc(s.routePath("/api/fs/rename"), s.handleFSRename)
+	s.mux.HandleFunc(s.routePath("/api/fs/delete"), s.handleFSDelete)
 	s.mux.HandleFunc(s.routePath("/api/markdown"), s.handleMarkdown)
 	s.mux.HandleFunc(s.routePath("/api/table"), s.handleTable)
 	s.mux.HandleFunc(s.routePath("/api/diff"), s.handleDiff)
@@ -1462,6 +1464,148 @@ func (s *Server) handleFSNew(w http.ResponseWriter, r *http.Request) {
 		"path": rel,
 		"type": req.Type,
 	})
+}
+
+// fsProtectedPath reports whether rel is the project root or inside .git.
+// Rename and delete refuse both: removing .git would silently destroy the
+// repository, and the root is the workspace itself.
+func fsProtectedPath(rel string) bool {
+	if rel == "" {
+		return true
+	}
+	for _, part := range strings.Split(rel, "/") {
+		if part == ".git" {
+			return true
+		}
+	}
+	return false
+}
+
+// refreshAfterFSPathChange drops caches keyed by path and rebuilds the index
+// after a rename or delete. Paths disappear, so cached highlights go with them.
+func (s *Server) refreshAfterFSPathChange() {
+	EvictAll()
+	if s.lsp != nil {
+		s.lsp.RefreshOpenDocs()
+	}
+	if s.gitWatcher != nil {
+		s.gitWatcher.Trigger()
+	}
+	s.ix.Build()
+}
+
+type fsRenameRequest struct {
+	Path    string `json:"path"`
+	NewPath string `json:"newPath"`
+}
+
+func (s *Server) handleFSRename(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		fail(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req fsRenameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, "invalid json: "+err.Error())
+		return
+	}
+	srcAbs, srcRel, ok := s.safePath(req.Path)
+	if !ok || fsProtectedPath(srcRel) {
+		fail(w, http.StatusBadRequest, "bad path")
+		return
+	}
+	dstAbs, dstRel, ok := s.safePath(req.NewPath)
+	if !ok || fsProtectedPath(dstRel) {
+		fail(w, http.StatusBadRequest, "bad path")
+		return
+	}
+	if srcRel == dstRel {
+		fail(w, http.StatusBadRequest, "source and target are the same")
+		return
+	}
+	if strings.HasPrefix(dstRel, srcRel+"/") {
+		fail(w, http.StatusBadRequest, "cannot move an item inside itself")
+		return
+	}
+	srcInfo, err := os.Lstat(srcAbs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fail(w, http.StatusNotFound, "not found: "+srcRel)
+			return
+		}
+		fail(w, http.StatusInternalServerError, "failed to inspect source: "+err.Error())
+		return
+	}
+	if _, err := os.Lstat(dstAbs); err == nil {
+		fail(w, http.StatusConflict, "already exists: "+dstRel)
+		return
+	} else if !os.IsNotExist(err) {
+		fail(w, http.StatusInternalServerError, "failed to inspect target: "+err.Error())
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(dstAbs), 0o755); err != nil {
+		fail(w, http.StatusInternalServerError, "failed to create parent directory: "+err.Error())
+		return
+	}
+	if err := os.Rename(srcAbs, dstAbs); err != nil {
+		fail(w, http.StatusInternalServerError, "failed to rename: "+err.Error())
+		return
+	}
+	if s.lsp != nil && !srcInfo.IsDir() {
+		s.lsp.CloseDoc(srcAbs, srcRel)
+	}
+	s.refreshAfterFSPathChange()
+
+	writeJSON(w, map[string]any{
+		"ok":      true,
+		"path":    srcRel,
+		"newPath": dstRel,
+	})
+}
+
+type fsDeleteRequest struct {
+	Path string `json:"path"`
+}
+
+func (s *Server) handleFSDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		fail(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req fsDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, "invalid json: "+err.Error())
+		return
+	}
+	abs, rel, ok := s.safePath(req.Path)
+	if !ok || fsProtectedPath(rel) {
+		fail(w, http.StatusBadRequest, "bad path")
+		return
+	}
+	info, err := os.Lstat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fail(w, http.StatusNotFound, "not found: "+rel)
+			return
+		}
+		fail(w, http.StatusInternalServerError, "failed to inspect path: "+err.Error())
+		return
+	}
+	if info.IsDir() {
+		err = os.RemoveAll(abs)
+	} else {
+		err = os.Remove(abs)
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "failed to delete: "+err.Error())
+		return
+	}
+	if s.lsp != nil && !info.IsDir() {
+		s.lsp.CloseDoc(abs, rel)
+	}
+	s.refreshAfterFSPathChange()
+
+	writeJSON(w, map[string]any{"ok": true, "path": rel})
 }
 
 // handleDiff returns the unified diff of a file against HEAD. available is false

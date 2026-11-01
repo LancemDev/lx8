@@ -20,7 +20,7 @@ import { newThread, deleteCurrentThread } from './thread.js';
 import { copyToClipboard, copyRichToClipboard } from './ui.js';
 import { getDocRaw } from './markdown.js';
 import { getSelectedRangeInfo } from './selbar.js';
-import { enterEditMode, exitEditMode, saveActiveFile } from './editview.js';
+import { enterEditMode, exitEditMode, saveActiveFile, saveAllFiles } from './editview.js';
 import { promptNewItem } from './newitem.js';
 import { navigateToTips, showTipWidget } from './tips.js';
 
@@ -71,6 +71,7 @@ export const COMMANDS = [
     }
   } },
   { name: withKeys('File: Save File ({Mod+S})'), run: () => saveActiveFile() },
+  { name: withKeys('File: Save All ({Mod+Alt+S})'), run: () => saveAllFiles() },
   { name: 'File: New File…', run: () => promptNewItem('file') },
   { name: 'File: New Folder…', run: () => promptNewItem('dir') },
   { name: withKeys('Preferences: Open Settings (UI) ({Mod+,})'), run: () => openSettings('ui') },
@@ -80,6 +81,7 @@ export const COMMANDS = [
   { name: 'Go to Line…', run: () => openPalette('line') },
   { name: 'Search in Files', run: () => showRightInspector('search') },
   { name: 'Find in Current File', run: () => openFind(S.lastWord) },
+  { name: withKeys('Find and Replace (Editor) ({Mod+Alt+F})'), run: () => openFind(S.lastWord, { replace: true }) },
   { name: 'Go to Definition', run: () => gotoDefinition() },
   { name: 'Find All References (Right Panel)', run: () => findReferences() },
   { name: withKeys('Show Call Trail: Callers / Callees ({Alt+Shift+H})'), run: () => showCalls() },

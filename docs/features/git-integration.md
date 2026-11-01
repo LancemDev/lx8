@@ -25,7 +25,7 @@ The sidebar's git panel is the one part of this feature that *does* write to the
   - `U` (Untracked): New file not yet tracked by Git.
   - `R` (Renamed): File renamed or moved.
 - **Dirty Ancestor Folder Propagation**: When a nested file is modified (e.g., `src/core/auth/token.go`), all parent directories in the tree (`auth/`, `core/`, `src/`) display a subtle dirty indicator badge. This allows you to spot modifications even when folder branches are collapsed.
-- **File Explorer vs. Git Changes Toggle**: A dedicated segmented toggle in the sidebar header allows you to switch between the full project directory tree and the Git changes view. In Git changes mode, lx8 collapses untouched folders and presents only files with uncommitted additions, modifications, or deletions. A project always opens on the file tree: reviewing changes is a view you ask for, not the first thing standing between you and the code.
+- **File Explorer vs. Git Changes Toggle**: A dedicated segmented toggle in the sidebar header allows you to switch between the full project directory tree and the Git changes view. In Git changes mode, lx8 collapses untouched folders and presents only files with uncommitted additions, modifications, or deletions, and shows the Git panel underneath. The default Files view hides the panel so the editing surface stays uncluttered. A project always opens on the file tree: reviewing changes is a view you ask for, not the first thing standing between you and the code.
 - **Follows the Checkout**: A pull, a branch switch made in a terminal (`git switch`, `git checkout`), a reset or a rebase moves `HEAD` without changing any file's status. lx8 watches the branch and commit, then re-indexes the tree and re-reads every open tab, so the editor never keeps showing a file from the branch that is no longer checked out. The branch name in the git panel updates at the same time.
 - **Automatic Explorer Fallback**: If all uncommitted changes are discarded or committed while you are in Git changes mode, lx8 automatically switches back to standard file explorer mode so you are never left viewing an empty tree.
 - **Auto-Closing Discarded Diff Tabs**: When you discard changes to a file from the terminal (`git checkout -- file` or `git reset`), any tab opened in diff view for that file automatically closes in reverse index order, keeping the active tab index stable and preventing stale diff errors.
@@ -33,7 +33,7 @@ The sidebar's git panel is the one part of this feature that *does* write to the
   - Green bar for added lines.
   - Blue bar for modified lines.
   - Red triangle or marker for deleted lines.
-- **Interactive Diff Viewer (`Cmd/Ctrl+D`)**: Toggle between normal source view and full Git diff with a single keystroke.
+- **Interactive Diff Viewer (`Cmd/Ctrl+D`)**: A changed file opens as source in a normal project so it is immediately editable; `Cmd/Ctrl+D` swaps to the full Git diff and back. PR review sessions stay diff-first.
 - **Side-by-Side & Unified Diff Modes**:
   - **Side-by-Side (Split)**: View original `HEAD` code on the left and active working-tree code on the right with synchronized scrolling.
   - **Unified**: View changes inline with consecutive additions and deletions.
@@ -42,7 +42,7 @@ The sidebar's git panel is the one part of this feature that *does* write to the
 - **Direct Agent Editing from Diffs**: Select any modified or added line in the diff view and trigger an AI agent edit (`Alt+E`) to refine or correct the change on the spot.
 - **Battery and Focus Awareness**: The live stream automatically suspends when the browser tab is hidden (`document.visibilityState === 'hidden'`), conserving CPU cycles and laptop battery. When you switch back to lx8, it instantly reconnects and queries `/api/git/refresh` to catch any changes made while the window was in the background.
 - **Per-File Stage Tick**: Every changed row in the file tree carries a small tick button next to its status badge. Clicking it stages or unstages that file (`git add` / `git reset`) without opening a terminal; the tick updates live as the same status stream that drives the badges reconciles it.
-- **Git Panel (Stage, Commit, Push, Pull)**: A resizable panel at the bottom of the sidebar shows the current branch, a live `staged / changed` count, a monospace commit message box, and Stage All / Commit / Pull / Push buttons.
+- **Git Panel (Stage, Commit, Push, Pull)**: A resizable panel at the bottom of the sidebar shows the current branch, a live `staged / changed` count, a monospace commit message box, and Stage All / Commit / Pull / Push buttons. It appears in the sidebar's Changes view; the Files view keeps it hidden until you switch.
 - **Commit with AI**: A harness and model picker (the same one used for inline edits) sits above the commit box. **Commit with AI** dispatches the selected harness with the staged diff — plus any instructions from `git.commitMessageInstruction` in Settings — asks it to write only the commit message text, drops that into the box, and commits with it in the same action.
 - **Browse Recent Commits**: The git panel lists the latest commits. Click a commit to expand it in place: its author, when it was made, and every file it changed, each with an `A`/`M`/`D`/`R` status letter and `+`/`−` line counts. Click a file to read that commit's own diff, the same way the Unpushed list does: the tab is pinned to the commit and marked `@03beaf0`. A strip above the diff shows where the file sits in the commit (`3 / 17`); ‹ › step to the neighbouring file, swapping the tab in place rather than opening one per file. Click the short hash at the end of a row to copy it. Merge commits are shown against their first parent. In both lists, a large commit shows 100 files at a time, with a **Show 100 more** row below.
 - **Fast-Forward-Only Pull**: Pull always tries a clean fast-forward onto the remote (or, in a PR review session, the pull request's current head). If history has diverged, lx8 itself never starts a merge. Instead the git panel shows what diverged and offers **Rebase with AI** or **Merge with AI**, which hand the job, conflicts included, to your selected coding harness. Nothing runs unless you click one, and the harness is told never to push.
@@ -108,6 +108,7 @@ A rebase or merge left half-done from a terminal is shown the same way when lx8 
 | :--- | :--- | :--- |
 | `Cmd/Ctrl+D` | Editor | Toggle Git Diff View (Split / Unified vs. `HEAD`) |
 | Toggle Segment (`Files` / `Changes`) | Sidebar Header | Switch between File Explorer and Changed Files Only |
+| Right-click a File or Folder | File Tree | New / Rename / Delete / Copy Path |
 | Toggle Icon | Diff Header | Switch between Side-by-Side and Unified Diff |
 | Space Icon | Diff Header | Toggle Ignore Leading/Trailing Whitespace |
 | `Mod+Shift+R` | Global | Force Workspace and Git Status Refresh |
