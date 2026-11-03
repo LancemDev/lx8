@@ -4,6 +4,7 @@ import { on } from './bus.js';
 import { vp, showToast } from './ui.js';
 import { render, paint } from './renderer.js';
 import { centerLine } from './tabs.js';
+import { revealEditRange } from './editview.js';
 import { updateStatus } from './status.js';
 import { mdview, previewing, findInPreview, showPreviewHit, clearPreviewMarks, previewHitOffsets, scrollPreviewTo } from './markdown.js';
 
@@ -185,12 +186,9 @@ export function drawMinimap(hits, total) {
 }
 
 function jumpToEditHit(start) {
-  const q = S.find.q;
-  const end = start + q.length;
-  // Focusing the textarea lets the browser scroll the selected range into
-  // view, including wrapped lines; the find field regains focus afterwards.
-  editArea.focus({ preventScroll: true });
-  editArea.setSelectionRange(start, end);
+  // The selection is only painted while the textarea is focused; the find
+  // field takes focus back so typing keeps refining the query.
+  revealEditRange(start, start + S.find.q.length, { focus: true });
   findInput.focus({ preventScroll: true });
 }
 

@@ -15,7 +15,7 @@ import { clearSelectAll } from './selbar.js';
 import { syncPreview, previewing, previewLine } from './markdown.js';
 import { syncDiffView, layoutPref, diffScrollTop, setDiffMode, setSourceJumpHandler, setCommitStepHandler, scrollDiffToLine } from './diff.js';
 import { syncImageView } from './imageview.js';
-import { syncEditUI, editTextarea, updateGutter } from './editview.js';
+import { syncEditUI, editTextarea, updateGutter, revealEditLine } from './editview.js';
 
 // Recently closed files, newest last, for Alt+Shift+T.
 const closedTabs = [];
@@ -416,6 +416,8 @@ export async function reloadOpenTabs({ onlyIfChanged = false } = {}) {
 }
 
 export function centerLine(n) {
+  // An open editor covers the viewer; scroll the text being edited instead.
+  if (doc_()?.isEditing && !doc_().diffMode) { revealEditLine(n); return; }
   if (previewing()) { previewLine(n); return; }
   const y = (n - 1) * LH - Math.max(0, vp.clientHeight / 2 - LH * 2);
   vp.scrollTop = Math.max(0, y);
