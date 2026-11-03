@@ -144,6 +144,31 @@ function editLineTop(n) {
   return row ? row.offsetTop : (n - 1) * editLH();
 }
 
+/* Select [start, end) in the editor and scroll it to the middle of the view.
+   Browsers do not reliably scroll a textarea to a selection set from script,
+   so the scroll position is computed from the line instead. Focus is left
+   where it was unless focus is true (the find bar keeps its own). */
+export function revealEditRange(start, end = start, { focus = false } = {}) {
+  if (!editTextarea) return;
+  if (focus) editTextarea.focus({ preventScroll: true });
+  editTextarea.setSelectionRange(start, end);
+  const line = editTextarea.value.slice(0, start).split('\n').length;
+  const y = editLineTop(line) - Math.max(0, (editTextarea.clientHeight - editLH()) / 2);
+  editTextarea.scrollTop = Math.max(0, y);
+  syncHighlightScroll();
+  if (editGutterEl) editGutterEl.scrollTop = editTextarea.scrollTop;
+}
+
+/* Put the caret at the start of line n (1-based) and center it. */
+export function revealEditLine(n) {
+  if (!editTextarea) return;
+  const lines = editTextarea.value.split('\n');
+  const target = Math.max(1, Math.min(n, lines.length));
+  let offset = 0;
+  for (let i = 0; i < target - 1; i++) offset += lines[i].length + 1;
+  revealEditRange(offset, offset, { focus: true });
+}
+
 // The first line visible at the top of the textarea.
 function editTopLine() {
   const top = editTextarea.scrollTop;
